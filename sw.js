@@ -2,7 +2,7 @@
    Strategy: precache everything, then stale-while-revalidate, so pages open
    instantly and quietly pick up any changes you push.
    Bump VERSION when files are added or removed. */
-const VERSION = 'ps-v1';
+const VERSION = 'ps-v2';
 const FILES = [
   './', 'index.html', 'map.html', 'manifest.webmanifest',
   'app/app.css', 'app/app.js', 'app/md.js',
@@ -14,6 +14,7 @@ const FILES = [
   '04-randomness/README.md', '04-randomness/miller_rabin.py',
   '05-self-reference/README.md', '05-self-reference/diagonal.html', '05-self-reference/quine.py',
   '06-complexity/README.md',
+  'puzzles/puzzles.md',
 ];
 
 self.addEventListener('install', e => {

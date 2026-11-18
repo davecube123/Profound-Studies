@@ -11,10 +11,11 @@ This repo is also an installable **study companion app** (a PWA). It works offli
 | | What it does |
 |---|---|
 | **Home** | Overall progress, a day streak, "continue where you left off", and one question to wonder about each day |
+| **Puzzle** | **One problem you carry** for a week or a month. Log thoughts day by day; hints unlock only after you've come back on more separate days, and the solution opens when you mark it solved. A new puzzle of the week (or month) every period, and you can add your own. The library lives in [`puzzles/puzzles.md`](puzzles/puzzles.md) |
 | **Modules** | Each guide rendered with **tickable proof-path checklists**, buttons to launch the interactives, and a private **notes** pad |
 | **Journal** | The `questions.md` format as a real tool: question → my attempt → where I got stuck → what I learned → new questions (which spawn new entries). Filter, search, and export to Markdown |
 | **Focus** | A "struggle first" timer: no AI and no searching until it rings, with a scratch pad that becomes the journal's "my attempt" |
-| **Map** | The interactive concept map of how everything connects ([map.html](map.html)) |
+| **Map** | The interactive concept map of how everything connects ([map.html](map.html)). On a phone, open it from the Modules tab |
 
 **Run it**
 - **On your computer:** `python3 -m http.server` in the repo folder, then open <http://localhost:8000>. The browser offers "Install" in the address bar.

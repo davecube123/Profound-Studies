@@ -29,7 +29,8 @@
 
   // ---------- state ----------
   const KEY = 'profound-studies.v1';
-  const blank = () => ({ checks: {}, journal: [], notes: {}, activity: {}, visits: {}, last: null, timer: null, theme: 'system', totals: {} });
+  const blank = () => ({ checks: {}, journal: [], notes: {}, activity: {}, visits: {}, last: null, timer: null, theme: 'system', totals: {},
+    carry: null, pz: {}, pzCadence: 'week', customPuzzles: [] });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = blank(); }
   let saveT = null;
@@ -106,6 +107,10 @@
     [/^\/focus$/, renderFocus],
     [/^\/map$/, renderMap],
     [/^\/code\/(.+)$/, renderCode],
+    [/^\/puzzle$/, () => renderPuzzle(null)],
+    [/^\/puzzle\/([\w-]+)$/, renderPuzzle],
+    [/^\/puzzles$/, renderPuzzleLib],
+    [/^\/puzzles\/new$/, renderPuzzleNew],
     [/^\/settings$/, renderSettings],
   ];
   let cleanup = null;
@@ -114,7 +119,7 @@
     const [path, query] = (location.hash.slice(1) || '/').split('?');
     const params = new URLSearchParams(query || '');
     const top = path.split('/')[1] || 'home';
-    const navKey = top === 'module' || top === 'thread' || top === 'code' ? 'modules' : top;
+    const navKey = top === 'module' || top === 'thread' || top === 'code' ? 'modules' : top === 'puzzles' ? 'puzzle' : top;
     document.querySelectorAll('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === navKey));
     for (const [re, fn] of routes) {
       const m = path.match(re);
@@ -160,6 +165,7 @@
     const pool = [...open.map(e => ({ text: e.question, id: e.id })), ...seeds.map(s => ({ text: s }))].filter(x => x.text);
     const pick = pool.length ? pool[Math.floor((Date.now() / 864e5) % pool.length)] : null; // stable for the day
     const last = S.last;
+    const pzCard = await puzzleHomeCard();
     view.innerHTML = `
       <section class="hero">
         <svg class="ring" viewBox="0 0 96 96" aria-label="${Math.round(pct * 100)}% of proof-path items done">
@@ -171,6 +177,8 @@
           ${heatStrip()}
         </div>
       </section>
+
+      ${pzCard}
 
       ${last ? `<h2>Continue</h2><a class="card" href="${esc(last.href)}"><div class="eyebrow">Where you left off</div><h3>${esc(last.title)}</h3></a>` : ''}
 
@@ -415,14 +423,16 @@
   }
   setInterval(tickBadge, 1000);
 
-  function renderFocus(_, params) {
-    const pq = params.get('q'), pm = params.get('m'), pe = params.get('e');
+  async function renderFocus(_, params) {
+    await loadPuzzles();
+    const pp = params.get('p'), pzl = pp && getPuzzle(pp);
+    const pq = params.get('q') || (pzl ? pzl.title : null), pm = params.get('m') || (pzl ? pzl.module : null), pe = params.get('e');
     const fromEntry = pe && S.journal.find(x => x.id === pe);
     const busy = S.timer && !S.timer.done && (S.timer.startedAt || S.timer.elapsed > 0 || (S.timer.scratch || '').trim());
     if ((pq || pm || fromEntry) && busy) { toast('Finish or reset your current attempt first'); history.replaceState(null, '', '#/focus'); }
     else if (pq || pm || fromEntry) {
       S.timer = { duration: (S.timer?.duration) || 15 * 60, elapsed: 0, startedAt: null, done: false, scratch: '',
-        q: fromEntry ? fromEntry.question : (pq || ''), module: fromEntry ? fromEntry.module : (pm || ''), entry: fromEntry ? fromEntry.id : null };
+        q: fromEntry ? fromEntry.question : (pq || ''), module: fromEntry ? fromEntry.module : (pm || ''), entry: fromEntry ? fromEntry.id : null, puzzle: pzl ? pzl.id : null };
       save(); history.replaceState(null, '', '#/focus');
     }
     if (!S.timer) S.timer = { duration: 15 * 60, elapsed: 0, startedAt: null, done: false, scratch: '', q: '', module: '', entry: null };
@@ -442,7 +452,7 @@
       <div class="row" style="justify-content:center;margin-bottom:16px">
         <button class="btn primary" id="go"></button><button class="btn" id="rs">Reset</button><button class="btn" id="log">Log attempt</button>
       </div>
-      <label class="field"><span>Scratch: my attempt as I go</span><textarea id="scr" rows="6" style="min-height:150px" placeholder="Definitions I'm using, small cases, guesses, dead ends…">${esc(t.scratch)}</textarea><small>This becomes the "My attempt" field when you log it.</small></label>
+      <label class="field"><span>Scratch: my attempt as I go</span><textarea id="scr" rows="6" style="min-height:150px" placeholder="Definitions I'm using, small cases, guesses, dead ends…">${esc(t.scratch)}</textarea><small>${t.puzzle ? 'This is added to the puzzle\'s thought log when you log it.' : 'This becomes the "My attempt" field when you log it.'}</small></label>
       <div class="rules">Tips: try small cases first. Draw something. Restate the problem in your own words. If you're stuck for real, write down <i>exactly</i> what you'd need to know to continue. That sentence is your best question.</div>`;
     const arc = $('#arc');
     const paint = () => {
@@ -472,6 +482,11 @@
     $('#rs').onclick = () => { t.elapsed = 0; t.startedAt = null; t.done = false; save(); paint(); tickBadge(); };
     $('#log').onclick = () => {
       const mins = Math.max(1, Math.round(tSpent() / 60));
+      if (t.puzzle) {
+        const st = pzState(t.puzzle);
+        st.log.unshift({ at: new Date().toISOString(), text: t.scratch.trim() || '(a focused session on this puzzle)', minutes: mins });
+        const id = t.puzzle; S.timer = null; mark(); save(true); location.hash = '#/puzzle/' + id; tickBadge(); return;
+      }
       if (t.entry && S.journal.find(x => x.id === t.entry)) {
         const e = S.journal.find(x => x.id === t.entry);
         e.minutes = (e.minutes || 0) + mins;
@@ -489,6 +504,228 @@
 
   function renderMap() {
     view.innerHTML = `<iframe class="mapframe" src="map.html" title="Concept map"></iframe>`;
+  }
+
+  // ----- puzzles: one problem you carry -----
+  let PUZZLES = null;
+  async function loadPuzzles() {
+    if (PUZZLES) return PUZZLES;
+    try { PUZZLES = parsePuzzles(await getText('puzzles/puzzles.md')); } catch (e) { PUZZLES = []; }
+    return PUZZLES;
+  }
+  function parsePuzzles(txt) {
+    return txt.split(/^## /m).slice(1).map(part => {
+      const lines = part.split('\n');
+      const [id, ...t] = lines[0].split(' · ');
+      const meta = {};
+      (lines[1] || '').split(' · ').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) meta[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); });
+      const sec = {};
+      lines.slice(2).join('\n').split(/^### /m).slice(1).forEach(sx => {
+        const nl = sx.indexOf('\n');
+        sec[sx.slice(0, nl).trim().toLowerCase()] = sx.slice(nl + 1).replace(/\n-{3,}\s*$/, '').trim();
+      });
+      const hints = (sec.hints || '').split(/^\d+\.\s+/m).map(h => h.trim()).filter(Boolean);
+      return { id: id.trim(), title: t.join(' · ').trim(), module: meta.module || '', scale: meta.scale || 'week',
+        difficulty: +meta.difficulty || 1, problem: sec.problem || '', why: sec['why it matters'] || '',
+        hints, solution: sec['solution sketch'] || '', extension: sec['keep carrying'] || '' };
+    }).filter(p => p.id && p.title && p.problem);
+  }
+  const allPuzzles = () => [...(PUZZLES || []), ...S.customPuzzles];
+  const getPuzzle = id => allPuzzles().find(p => p.id === id);
+  function pzState(id) { return S.pz[id] || (S.pz[id] = { log: [], status: 'new', hintsOpen: 0, solutionSeen: false }); }
+  const thoughtDays = st => new Set(st.log.map(l => localDay(new Date(l.at)))).size;
+  const daysSince = iso => Math.floor((Date.parse(localDay()) - Date.parse(localDay(new Date(iso)))) / 864e5) + 1;
+
+  // Schedule anchored to the week this feature was added (Monday 16 Nov 2026).
+  const EPOCH = Date.UTC(2026, 10, 16);
+  function scheduled(cadence = S.pzCadence) {
+    const list = (PUZZLES || []).filter(p => p.scale === cadence);
+    if (!list.length) return null;
+    const now = new Date(), utcToday = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    let idx, label;
+    if (cadence === 'month') {
+      idx = (now.getFullYear() - 2026) * 12 + now.getMonth() - 10;
+      label = 'Puzzle of the month · ' + now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    } else {
+      idx = Math.floor((utcToday - EPOCH) / (7 * 864e5));
+      const mon = new Date(EPOCH + idx * 7 * 864e5), sun = new Date(mon.getTime() + 6 * 864e5);
+      const f = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      label = `Puzzle of the week · ${f(mon)} – ${f(sun)}`;
+    }
+    return { puzzle: list[((idx % list.length) + list.length) % list.length], label };
+  }
+  const diffDots = d => `<span class="diff" title="difficulty ${d} of 3">${'●'.repeat(d)}${'○'.repeat(3 - d)}</span>`;
+  function pzChips(p) {
+    const m = MOD[p.module];
+    return `<div class="row small" style="gap:10px">
+      ${m ? `<span style="--mc:${m.color}"><span class="dot"></span>${m.name}</span>` : ''}
+      <span class="chip">${p.scale === 'month' ? 'monthly' : p.scale === 'mine' ? 'my puzzle' : 'weekly'}</span>
+      ${p.scale !== 'mine' ? diffDots(p.difficulty) : ''}</div>`;
+  }
+  function statusChip(p) {
+    const st = S.pz[p.id]; const carrying = S.carry && S.carry.id === p.id;
+    if (carrying) return '<span class="chip open">carrying</span>';
+    if (st && st.status === 'solved') return '<span class="chip done">solved</span>';
+    if (st && st.log.length) return `<span class="chip">thought on ${thoughtDays(st)} day${thoughtDays(st) > 1 ? 's' : ''}</span>`;
+    return '';
+  }
+
+  async function puzzleHomeCard() {
+    await loadPuzzles();
+    const carried = S.carry && getPuzzle(S.carry.id);
+    if (carried) {
+      const st = pzState(carried.id), last = st.log[0];
+      return `<h2>The puzzle you're carrying</h2>
+        <div class="card pzcard"><div class="eyebrow">Day ${daysSince(S.carry.since)} · thought on ${thoughtDays(st)} day${thoughtDays(st) === 1 ? '' : 's'}</div>
+        <h3 style="font-size:1.15rem;margin:4px 0 6px"><a href="#/puzzle" style="color:inherit;text-decoration:none">${esc(carried.title)}</a></h3>
+        ${last ? `<div class="muted small" style="margin-bottom:10px">Last thought (${fmtDate(last.at)}): “${esc(last.text.slice(0, 140))}${last.text.length > 140 ? '…' : ''}”</div>` : '<div class="muted small" style="margin-bottom:10px">No thoughts logged yet. Even a wrong idea counts.</div>'}
+        <div class="row"><a class="btn primary" href="#/puzzle">Add a thought</a><a class="btn" href="#/focus?p=${carried.id}">Focus on it</a></div></div>`;
+    }
+    const sc = scheduled(); if (!sc) return '';
+    return `<h2>${esc(sc.label.split(' · ')[0])}</h2>
+      <div class="card pzcard"><div class="eyebrow">${esc(sc.label.split(' · ')[1])}</div>
+      <h3 style="font-size:1.15rem;margin:4px 0 6px">${esc(sc.puzzle.title)}</h3>${pzChips(sc.puzzle)}
+      <div class="row" style="margin-top:12px"><a class="btn primary" href="#/puzzle">Look at it</a><a class="btn" href="#/puzzles">All puzzles</a></div></div>`;
+  }
+
+  async function renderPuzzle(id) {
+    await loadPuzzles();
+    let p, label = '';
+    if (id) p = getPuzzle(id);
+    else if (S.carry && getPuzzle(S.carry.id)) p = getPuzzle(S.carry.id);
+    else { const sc = scheduled(); if (sc) { p = sc.puzzle; label = sc.label; } }
+    if (!p) throw new Error('No puzzle found');
+    const st = pzState(p.id), carrying = !!(S.carry && S.carry.id === p.id);
+    const D = thoughtDays(st), mins = st.log.reduce((a, l) => a + (l.minutes || 0), 0);
+    const md = t => MD.render(t || '', { resolveLink: resolveFrom('puzzles/') });
+    const solved = st.status === 'solved';
+    const showSolution = solved || st.solutionSeen;
+    const H = p.hints.length;
+    if (carrying) { S.last = { href: '#/puzzle', title: 'Puzzle: ' + p.title }; save(); }
+
+    let hintsHtml = '';
+    if (H) {
+      hintsHtml = p.hints.slice(0, st.hintsOpen).map((h, i) => `<div class="hint"><div class="eyebrow">Hint ${i + 1}</div>${md(h)}</div>`).join('');
+      if (st.hintsOpen < H) {
+        const need = st.hintsOpen + 1 - D;
+        hintsHtml += need <= 0
+          ? `<button class="btn" id="hintBtn">Reveal hint ${st.hintsOpen + 1} of ${H}</button>`
+          : `<div class="lock">🔒 Hint ${st.hintsOpen + 1} of ${H} unlocks after you log a thought on ${need} more day${need > 1 ? 's' : ''}. Hints reward carrying, not rushing.</div>`;
+      }
+    }
+    const peekReady = !H || (st.hintsOpen >= H && D >= H + 1);
+    let solHtml;
+    if (p.scale === 'mine') solHtml = solved ? '<p class="muted">You marked this solved. 🎉</p>' : '';
+    else if (showSolution) solHtml = `<div class="hint sol"><div class="eyebrow">Solution sketch</div>${md(p.solution)}</div>
+        ${p.extension ? `<div class="hint ext"><div class="eyebrow">Keep carrying</div>${md(p.extension)}</div>` : ''}`;
+    else solHtml = `<div class="lock">🔒 The solution sketch opens when you mark the puzzle solved, so you can compare. ${H ? `Or, if you're truly stuck: open all ${H} hints and think on ${H + 1} different days.` : ''}</div>
+        ${peekReady && !solved ? '<button class="btn" id="peek">Show me the solution</button>' : ''}`;
+
+    view.innerHTML = `
+      <div class="row small"><a href="#/puzzles">← All puzzles</a></div>
+      <div class="eyebrow" style="margin-top:12px">${carrying ? `You're carrying this · day ${daysSince(S.carry.since)}` : esc(label || (p.scale === 'month' ? 'Monthly puzzle' : p.scale === 'mine' ? 'My puzzle' : 'Weekly puzzle'))}</div>
+      <h1>${esc(p.title)}</h1>
+      ${pzChips(p)}
+      ${carrying || st.log.length ? `<p class="muted small" style="margin:8px 0 0">Thought on ${D} day${D === 1 ? '' : 's'} · ${st.log.length} note${st.log.length === 1 ? '' : 's'}${mins ? ` · ${mins} min focused` : ''} ${solved ? ' · <b style="color:var(--good)">solved</b>' : ''}</p>` : ''}
+      <article class="doc problem">${md(p.problem)}</article>
+      ${p.why ? `<details class="why"><summary>Why it matters</summary><div class="doc">${md(p.why)}</div></details>` : ''}
+
+      <div class="row" style="margin:16px 0">
+        ${carrying ? `<a class="btn primary" href="#/focus?p=${p.id}">Focus on it</a>` : `<button class="btn primary" id="carry">Carry this puzzle</button>`}
+        <a class="btn" href="#/journal/new?m=${esc(p.module)}&q=${encodeURIComponent('Puzzle “' + p.title + '”: ')}">Journal question</a>
+        ${!solved ? '<button class="btn" id="solvedBtn">I solved it!</button>' : ''}
+        ${carrying ? '<span class="spacer"></span><button class="btn ghost" id="setdown">Set it down</button>' : ''}
+      </div>
+      ${!carrying && S.carry && getPuzzle(S.carry.id) ? `<p class="muted small">You're currently carrying <a href="#/puzzle">${esc(getPuzzle(S.carry.id).title)}</a>. Carrying this one will set that one down (its notes are kept).</p>` : ''}
+
+      <h2>Thoughts</h2>
+      <p class="muted small">Log anything: a small case, a wrong idea, a picture you'd draw, a question. Coming back on different days is what unlocks hints.</p>
+      <textarea id="thought" rows="3" placeholder="What I noticed today…"></textarea>
+      <div class="row" style="margin:8px 0 14px"><button class="btn primary" id="addThought">Add thought</button></div>
+      <div id="tlog">${st.log.map((l, i) => `<div class="thought"><div class="meta">${fmtDate(l.at)}${l.minutes ? ` · ${l.minutes} min focus` : ''}<button class="x" data-i="${i}" aria-label="Delete thought">×</button></div><div>${esc(l.text).replace(/\n/g, '<br>')}</div></div>`).join('') || '<div class="empty" style="padding:12px">No thoughts yet.</div>'}</div>
+
+      ${H || p.scale !== 'mine' ? `<h2>Hints</h2>${hintsHtml || '<p class="muted small">No hints for this one.</p>'}` : ''}
+      ${solHtml ? `<h2>Solution</h2>${solHtml}` : ''}
+      ${p.scale === 'mine' ? '<div class="row" style="margin-top:20px"><button class="btn danger" id="delP">Delete this puzzle</button></div>' : ''}`;
+
+    const carry = () => {
+      S.carry = { id: p.id, since: new Date().toISOString() };
+      if (st.status === 'new') st.status = 'carrying';
+      mark(); save(true); toast('Carrying it. Let it sit in the back of your mind.');
+      if (!id) renderPuzzle(null); else location.hash = '#/puzzle';
+    };
+    const cb = $('#carry'); if (cb) cb.onclick = () => {
+      if (S.carry && getPuzzle(S.carry.id) && S.carry.id !== p.id && !confirm(`Set down “${getPuzzle(S.carry.id).title}” and carry this one instead?`)) return;
+      carry();
+    };
+    $('#addThought').onclick = () => {
+      const v = $('#thought').value.trim(); if (!v) return toast('Write a thought first');
+      st.log.unshift({ at: new Date().toISOString(), text: v });
+      if (!S.carry && st.status !== 'solved') { S.carry = { id: p.id, since: new Date().toISOString() }; toast('Logged, and you are now carrying this puzzle'); }
+      else toast('Logged');
+      mark(); save(true); renderPuzzle(id);
+    };
+    $('#tlog').onclick = e => { const b = e.target.closest('.x'); if (!b) return; if (confirm('Delete this thought?')) { st.log.splice(+b.dataset.i, 1); save(true); renderPuzzle(id); } };
+    const hb = $('#hintBtn'); if (hb) hb.onclick = () => { st.hintsOpen++; mark(); save(true); renderPuzzle(id); };
+    const pk = $('#peek'); if (pk) pk.onclick = () => { if (confirm('Look at the solution sketch? You can still keep carrying the "Keep carrying" extension afterwards.')) { st.solutionSeen = true; save(true); renderPuzzle(id); } };
+    const sb = $('#solvedBtn'); if (sb) sb.onclick = () => {
+      if (!st.log.length && !confirm('Mark solved without writing down your solution? Writing it in your own words is the best part.')) return;
+      st.status = 'solved'; st.solvedAt = new Date().toISOString(); mark(); save(true);
+      toast('Solved! Compare with the sketch, then try "Keep carrying".'); renderPuzzle(id);
+    };
+    const sd = $('#setdown'); if (sd) sd.onclick = () => { if (confirm('Set this puzzle down? Your thoughts are kept and you can pick it up again any time.')) { S.carry = null; if (st.status === 'carrying') st.status = 'paused'; save(true); location.hash = '#/puzzles'; } };
+    const dp = $('#delP'); if (dp) dp.onclick = () => { if (confirm('Delete this puzzle and its thoughts?')) { S.customPuzzles = S.customPuzzles.filter(x => x.id !== p.id); delete S.pz[p.id]; if (S.carry && S.carry.id === p.id) S.carry = null; save(true); location.hash = '#/puzzles'; } };
+  }
+
+  let pzFilter = 'all';
+  async function renderPuzzleLib() {
+    await loadPuzzles();
+    const sw = scheduled('week'), sm = scheduled('month');
+    const carried = S.carry && getPuzzle(S.carry.id);
+    const row = p => `<a class="entry" href="#/puzzle/${p.id}"><div class="row"><span class="q">${esc(p.title)}</span><span class="spacer"></span>${statusChip(p)}</div><div style="margin-top:4px">${pzChips(p)}</div></a>`;
+    view.innerHTML = `
+      <div class="row"><h1 style="margin:0">Puzzles</h1><span class="spacer"></span><a class="btn" href="#/puzzles/new">+ My own puzzle</a></div>
+      <p class="lede">One problem at a time, carried for days. Hints unlock as you come back to it on different days.</p>
+      ${carried ? `<div class="card pzcard" style="margin-bottom:16px"><div class="eyebrow">Carrying · day ${daysSince(S.carry.since)}</div><h3 style="margin:4px 0 0"><a href="#/puzzle" style="color:inherit">${esc(carried.title)}</a></h3></div>` : ''}
+      <div class="grid">
+        ${sw ? `<a class="card" href="#/puzzle/${sw.puzzle.id}"><div class="eyebrow">${esc(sw.label)}</div><h3 style="margin-top:4px">${esc(sw.puzzle.title)}</h3>${pzChips(sw.puzzle)}</a>` : ''}
+        ${sm ? `<a class="card" href="#/puzzle/${sm.puzzle.id}"><div class="eyebrow">${esc(sm.label)}</div><h3 style="margin-top:4px">${esc(sm.puzzle.title)}</h3>${pzChips(sm.puzzle)}</a>` : ''}
+      </div>
+      <div class="row" style="margin:18px 0 10px">
+        <span class="muted small">Featured on Home:</span>
+        <div class="seg" id="cad">${['week', 'month'].map(c => `<button data-c="${c}" class="${S.pzCadence === c ? 'on' : ''}">${c === 'week' ? 'puzzle of the week' : 'puzzle of the month'}</button>`).join('')}</div>
+      </div>
+      <h2>Library</h2>
+      <div class="seg" id="pf" style="margin-bottom:12px">${[['all', 'all'], ['week', 'weekly'], ['month', 'monthly'], ['mine', 'mine'], ['solved', 'solved']].map(([k, l]) => `<button data-f="${k}" class="${pzFilter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div id="plist"></div>`;
+    const draw = () => {
+      const list = allPuzzles().filter(p => pzFilter === 'all' || (pzFilter === 'solved' ? S.pz[p.id]?.status === 'solved' : p.scale === pzFilter));
+      $('#plist').innerHTML = list.map(row).join('') || `<div class="empty">${pzFilter === 'mine' ? 'Add a problem of your own: something you saw, wondered, or read.' : 'Nothing here yet.'}</div>`;
+    };
+    $('#pf').onclick = e => { const f = e.target.dataset.f; if (!f) return; pzFilter = f; [...$('#pf').children].forEach(b => b.classList.toggle('on', b.dataset.f === f)); draw(); };
+    $('#cad').onclick = e => { const c = e.target.dataset.c; if (!c) return; S.pzCadence = c; save(); renderPuzzleLib(); };
+    draw();
+  }
+
+  function renderPuzzleNew() {
+    view.innerHTML = `
+      <a href="#/puzzles" class="small">← Puzzles</a>
+      <h1 style="margin-top:8px">My own puzzle</h1>
+      <p class="lede">Something you read, overheard, or wondered. A good puzzle to carry is one you can state in a few lines but can't see through yet.</p>
+      <label class="field"><span>Title</span><input type="text" id="pt" placeholder="e.g. Can every even number > 2 be written as a sum of two primes?"></label>
+      <label class="field"><span>Module</span><select id="pm"><option value="">None</option>${MODULES.map(m => `<option value="${m.id}">${m.num} ${m.name}</option>`).join('')}</select></label>
+      <label class="field"><span>The problem</span><textarea id="ps" rows="6" placeholder="State it as precisely as you can. Markdown works."></textarea></label>
+      <div class="row"><button class="btn primary" id="psave">Save and carry it</button><button class="btn" id="psave2">Save</button></div>`;
+    const go = carry => {
+      const title = $('#pt').value.trim(), problem = $('#ps').value.trim();
+      if (!title || !problem) return toast('Give it a title and a statement');
+      const p = { id: 'my-' + uid(), title, module: $('#pm').value, scale: 'mine', difficulty: 0, problem, why: '', hints: [], solution: '', extension: '' };
+      S.customPuzzles.unshift(p);
+      if (carry) { if (S.carry && getPuzzle(S.carry.id) && !confirm(`Set down “${getPuzzle(S.carry.id).title}”?`)) carry = false; }
+      if (carry) { S.carry = { id: p.id, since: new Date().toISOString() }; pzState(p.id).status = 'carrying'; }
+      mark(); save(true); location.hash = carry ? '#/puzzle' : '#/puzzle/' + p.id;
+    };
+    $('#psave').onclick = () => go(true); $('#psave2').onclick = () => go(false);
   }
 
   // ----- settings -----

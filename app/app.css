@@ -140,3 +140,18 @@ iframe.mapframe{width:100%;height:calc(100vh - 170px);min-height:520px;border:1p
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (min-width:760px){#toast{bottom:24px}}
 .empty{text-align:center;color:var(--muted);padding:28px 10px}
+
+/* puzzles */
+.pzcard{border-left:3px solid var(--accent2)}
+.diff{color:var(--accent2);letter-spacing:1px;font-size:.8rem}
+.problem{font-size:1.05rem;margin-top:10px}
+details.why{border:1px solid var(--line);border-radius:12px;padding:8px 14px;background:var(--panel)}
+details.why summary{cursor:pointer;color:var(--muted);font-size:.92rem}
+.hint{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px;margin:10px 0}
+.hint p:first-of-type{margin-top:4px}
+.hint.sol{border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+.hint.ext{border-color:color-mix(in srgb,var(--accent2) 45%,var(--line))}
+.lock{font-size:.9rem;color:var(--muted);border:1px dashed var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+.thought{border-left:2px solid var(--line);padding:2px 0 2px 12px;margin:0 0 12px}
+.thought .meta{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.thought .x{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 4px}
