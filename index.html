@@ -2,145 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Profound Studies</title>
-<style>
-:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#6b6b70;--line:#e3e1db;--panel:#fff;--edge:#cfccc4;--accent:#3b5bdb;--accent2:#e8590c;--node:#fff}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--edge:#3a3a43;--accent:#7c96ff;--accent2:#ff9147;--node:#1c1c21}}
-:root[data-theme="dark"]{--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--edge:#3a3a43;--accent:#7c96ff;--accent2:#ff9147;--node:#1c1c21}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:1000px;margin:0 auto;padding:28px 16px 56px}
-h1{font-size:1.9rem;margin:0;letter-spacing:-.01em}
-.lede{color:var(--muted);max-width:64ch;margin:.4rem 0 1.4rem}
-a{color:var(--accent)}
-.threads{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
-.threads button{font:inherit;font-size:.88rem;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer}
-.threads button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
-@media (max-width:760px){.wrap{grid-template-columns:1fr}}
-svg{width:100%;height:auto;display:block}
-.edge{stroke:var(--edge);stroke-width:2;transition:stroke .2s,stroke-width .2s}
-.edge.hot{stroke:var(--accent2);stroke-width:3.5}
-.hit{stroke:transparent;stroke-width:18;cursor:pointer}
-.node circle{fill:var(--node);stroke:var(--fg);stroke-width:1.5;cursor:pointer;transition:stroke .2s}
-.node:hover circle,.node.sel circle{stroke:var(--accent);stroke-width:3}
-.node text{fill:var(--fg);font:600 14px system-ui;text-anchor:middle;pointer-events:none}
-.node .num{fill:var(--muted);font:500 11px system-ui}
-.hub circle{fill:var(--accent);stroke:none}
-.hub text{fill:#fff;font:600 13px system-ui;text-anchor:middle;pointer-events:none}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-height:220px}
-.card h2{font-size:1.15rem;margin:0 0 .4rem}
-.card p{margin:.4rem 0;color:var(--fg)}
-.card .muted{color:var(--muted);font-size:.9rem}
-.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.links a{font-size:.88rem;border:1px solid var(--line);border-radius:8px;padding:4px 10px;text-decoration:none}
-.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:28px}
-.mod{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.mod b{display:block}
-.mod span{color:var(--muted);font-size:.88rem}
-footer{margin-top:28px;color:var(--muted);font-size:.88rem}
-</style>
+<meta name="description" content="A personal study companion for primes, emergence, recursion, randomness, self-reference and complexity.">
+<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141417" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="app/app.css">
 </head>
 <body>
-<main>
-<h1>Profound Studies</h1>
-<p class="lede">Six interests that look far apart, and one idea underneath them all: <b>a few simple rules, applied again and again, create unbounded structure, and that structure has limits no shortcut can cross.</b> Click a topic, a connecting line, or one of the four threads.</p>
+<header class="topbar">
+  <a href="#/" class="brand"><img src="icons/icon.svg" alt="" width="26" height="26"><span>Profound Studies</span></a>
+  <nav class="sidenav" aria-label="Main">
+    <a href="#/" data-nav="home">Home</a>
+    <a href="#/modules" data-nav="modules">Modules</a>
+    <a href="#/journal" data-nav="journal">Journal</a>
+    <a href="#/focus" data-nav="focus">Focus</a>
+    <a href="#/map" data-nav="map">Map</a>
+  </nav>
+  <a href="#/focus" id="timerBadge" class="timer-badge" hidden></a>
+  <a href="#/settings" class="iconbtn" aria-label="Settings" data-nav="settings">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </a>
+</header>
 
-<div class="threads" id="threads"></div>
-<div class="wrap">
-  <svg id="map" viewBox="-10 0 620 570" role="img" aria-label="Concept map of the six topics"></svg>
-  <div class="card" id="card"></div>
-</div>
+<main id="view" tabindex="-1"></main>
 
-<div class="modules" id="mods"></div>
-<footer>Read the full argument in <a href="THE_THREAD.md">THE_THREAD.md</a> · log questions in <a href="questions.md">questions.md</a></footer>
-</main>
+<nav class="tabbar" aria-label="Main">
+  <a href="#/" data-nav="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a>
+  <a href="#/modules" data-nav="modules"><svg viewBox="0 0 24 24"><path d="M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v6H4zM13 14h7v6h-7z"/></svg><span>Modules</span></a>
+  <a href="#/journal" data-nav="journal"><svg viewBox="0 0 24 24"><path d="M6 3h11a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6"/></svg><span>Journal</span></a>
+  <a href="#/focus" data-nav="focus"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg><span>Focus</span></a>
+  <a href="#/map" data-nav="map"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M11 7l-5 9M13 7l5 9M7.5 18h9"/></svg><span>Map</span></a>
+</nav>
 
-<script>
-const NODES = {
-  rec:  {n:'01', name:'Recursion',      x:300, y:70,  page:'01-recursion/quicksort.html', readme:'01-recursion/README.md',
-         blurb:'Defining something in terms of a smaller copy of itself. Quicksort, induction, fractals. It is the engine behind everything else on this map.'},
-  emg:  {n:'02', name:'Emergence',      x:505, y:185, page:'02-emergence/life.html', readme:'02-emergence/README.md',
-         blurb:'Four rules on a grid give gliders, guns and universal computers. Higher-level "laws" appear that nobody wrote down.'},
-  pri:  {n:'03', name:'Primes',         x:505, y:395, page:'03-primes/twin-primes.html', readme:'03-primes/README.md',
-         blurb:'A one-line definition that produces a sequence which looks random, follows statistical laws, and keeps its deepest secrets (twin primes).'},
-  rnd:  {n:'04', name:'Randomness',     x:300, y:505, page:null, readme:'04-randomness/README.md',
-         blurb:'Coin flips make algorithms fast and robust: Miller–Rabin, random pivots, fingerprints. But is randomness ever truly necessary?'},
-  cpx:  {n:'06', name:'Complexity',     x:95,  y:395, page:null, readme:'06-complexity/README.md',
-         blurb:'Among the things we can compute, which can we compute quickly? P vs NP is Gödel\'s question with a stopwatch.'},
-  slf:  {n:'05', name:'Self-reference', x:95,  y:185, page:'05-self-reference/diagonal.html', readme:'05-self-reference/README.md',
-         blurb:'A sentence that says "I am not provable". The diagonal trick behind Cantor, Gödel and Turing, and the reason quines exist.'},
-};
-const EDGES = [
-  ['rec','slf',['self'],'Calling yourself vs talking about yourself','A recursive function refers to itself. Gödel\'s sentence refers to itself. A quine is a program that prints its own code. All three rest on the same diagonal construction (Kleene\'s recursion theorem / the diagonal lemma).'],
-  ['rec','emg',['emerge'],'Iteration through time','Each generation of Life is the rule applied to the previous one. Emergence is what happens when you iterate a simple recursion long enough.'],
-  ['rec','rnd',['random'],'Randomized quicksort','A random pivot moves the bad luck from the input (which an adversary controls) to your coin (which nobody controls). Expected cost becomes ≈ 2n ln n on every input.'],
-  ['emg','pri',['emerge','random'],'Laws from a one-line rule','Gliders move at c/4, and primes thin out like 1/ln x. Neither "law" is in the definition. Both emerge, and both look statistical from far away.'],
-  ['pri','rnd',['random'],'Primes look random, randomness finds primes','The Hardy–Littlewood twin prime prediction comes from treating primes as random. Meanwhile every RSA key is found by testing random numbers with Miller–Rabin.'],
-  ['rnd','cpx',['random','limits'],'Is randomness real power?','BPP is the class of problems with fast randomized solutions. Impagliazzo–Wigderson: if some problems are truly hard, that hardness can be turned into pseudorandomness, and then P = BPP. Hardness and randomness are two sides of one coin.'],
-  ['cpx','slf',['limits','self'],'The diagonal with a clock','The time-hierarchy theorem (more time lets you solve strictly more problems) is Cantor/Turing diagonalization again. P vs NP is the efficiency version of "what can be decided?"'],
-  ['slf','emg',['limits','self'],'Undecidable futures','Life is Turing complete, so "will this pattern ever die?" is as hard as the halting problem. Life even has self-replicating patterns, von Neumann\'s self-reference made physical.'],
-  ['pri','cpx',['limits'],'Easy to test, hard to factor?','PRIMES is in P (AKS, 2002). FACTORING is not known to be. Modern cryptography rests on that gap.'],
-  ['emg','cpx',['emerge','limits'],'Computational irreducibility','Sometimes there is no shortcut, and the only way to know step one million is to compute it. Cook–Levin even encodes any computation as a grid of local rules, like a cellular automaton.'],
-  ['pri','slf',['limits'],'True but unprovable?','Could the twin prime conjecture be true yet unprovable? Gödel says some arithmetic truths are. Most experts expect twin primes is not one of them, but nobody can rule it out.'],
-  ['rec','cpx',['limits'],'The cost of recursion','n log n vs n²: recurrences measure how expensive a recursion is. This is the first step into complexity theory.'],
-];
-const THREADS = {
-  self:  ['Recursion & self-reference','Things defined by, or speaking about, themselves: quicksort, quines, Gödel\'s sentence, self-replicating Life patterns.'],
-  emerge:['Emergence','Simple rules produce higher-level structure that was never written into them.'],
-  random:['Structure vs randomness','Every object either has exploitable structure or looks random enough that statistics apply. Much of modern mathematics lives on that boundary.'],
-  limits:['Limits','Where shortcuts run out: undecidability, incompleteness, irreducibility and (probably) P ≠ NP.'],
-};
-const NS='http://www.w3.org/2000/svg', svg=document.getElementById('map'), card=document.getElementById('card');
-const mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e;};
-const edgeEls=[];
-EDGES.forEach((e,i)=>{
-  const a=NODES[e[0]], b=NODES[e[1]];
-  const line=mk('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'edge'});
-  const hit=mk('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'hit'});
-  hit.addEventListener('click',()=>showEdge(i));
-  edgeEls.push(line);
-});
-const hub=mk('g',{class:'hub'}); mk('circle',{cx:300,cy:285,r:62},hub);
-[['A few rules,',279],['applied again',297],['and again',315]].forEach(([t,y])=>{const x=mk('text',{x:300,y},hub);x.textContent=t;});
-hub.style.cursor='pointer'; hub.addEventListener('click',showHub);
-Object.entries(NODES).forEach(([k,v])=>{
-  const g=mk('g',{class:'node','data-k':k}); mk('circle',{cx:v.x,cy:v.y,r:60},g);
-  const n=mk('text',{x:v.x,y:v.y-8,class:'num'},g); n.textContent=v.n;
-  const t=mk('text',{x:v.x,y:v.y+12},g); t.textContent=v.name;
-  g.addEventListener('click',()=>showNode(k));
-});
-const links=v=>`<div class="links">${v.page?`<a href="${v.page}">Open the interactive →</a>`:''}<a href="${v.readme}">Read the guide</a></div>`;
-function hot(pred){ edgeEls.forEach((el,i)=>el.classList.toggle('hot',pred(EDGES[i]))); }
-function sel(k){ document.querySelectorAll('.node').forEach(n=>n.classList.toggle('sel',n.dataset.k===k)); }
-function clearThreads(){ document.querySelectorAll('.threads button').forEach(b=>b.classList.remove('on')); }
-function showNode(k){
-  const v=NODES[k]; clearThreads(); sel(k); hot(e=>e[0]===k||e[1]===k);
-  const conn=EDGES.filter(e=>e[0]===k||e[1]===k).map(e=>`<li><b>${NODES[e[0]===k?e[1]:e[0]].name}:</b> ${e[3]}</li>`).join('');
-  card.innerHTML=`<h2>${v.n} · ${v.name}</h2><p>${v.blurb}</p><p class="muted">Connections (click a line for more):</p><ul class="muted">${conn}</ul>${links(v)}`;
-}
-function showEdge(i){
-  const e=EDGES[i]; clearThreads(); sel(null); hot(()=>false); edgeEls[i].classList.add('hot');
-  card.innerHTML=`<p class="muted">${NODES[e[0]].name} ⟷ ${NODES[e[1]].name}</p><h2>${e[3]}</h2><p>${e[4]}</p><p class="muted">Threads: ${e[2].map(t=>THREADS[t][0]).join(', ')}</p>`;
-}
-function showThread(t,btn){
-  sel(null); clearThreads(); btn.classList.add('on'); hot(e=>e[2].includes(t));
-  const es=EDGES.filter(e=>e[2].includes(t)).map(e=>`<li><b>${NODES[e[0]].name} ⟷ ${NODES[e[1]].name}:</b> ${e[3]}</li>`).join('');
-  card.innerHTML=`<h2>${THREADS[t][0]}</h2><p>${THREADS[t][1]}</p><ul class="muted">${es}</ul>`;
-}
-function showHub(){
-  sel(null); clearThreads(); hot(()=>false);
-  card.innerHTML=`<h2>The unifying base: computation</h2><p>Axioms + inference rules give all of mathematics. One definition gives the primes. Four rules give Life. "Split and recurse" gives quicksort. Each is a short rule applied over and over, which is what <b>computation</b> is.</p><p>So the same questions apply everywhere: <i>What emerges? Does it look random? Can we shortcut it? Are there things it can never reach?</i></p><div class="links"><a href="THE_THREAD.md">Read THE_THREAD.md</a></div>`;
-}
-const th=document.getElementById('threads');
-Object.entries(THREADS).forEach(([k,v])=>{const b=document.createElement('button');b.textContent=v[0];b.onclick=()=>showThread(k,b);th.appendChild(b);});
-const mods=document.getElementById('mods');
-Object.values(NODES).sort((a,b)=>a.n.localeCompare(b.n)).forEach(v=>{
-  const d=document.createElement('div'); d.className='mod';
-  d.innerHTML=`<b>${v.n} · ${v.name}</b><span>${v.blurb}</span>${links(v)}`; mods.appendChild(d);
-});
-showHub();
-</script>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app/md.js"></script>
+<script src="app/app.js"></script>
 </body>
 </html>

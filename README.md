@@ -4,7 +4,27 @@ A personal study of the ideas I find most beautiful: **primes, emergence, recurs
 
 These topics look scattered, but they share a common thread: **a few simple rules, applied again and again, create unbounded structure, and that structure has limits that no shortcut can cross.** The full argument is in **[THE_THREAD.md](THE_THREAD.md)**.
 
-Open **[index.html](index.html)** in a browser for an interactive map of how everything connects.
+## The app
+
+This repo is also an installable **study companion app** (a PWA). It works offline on your phone or computer.
+
+| | What it does |
+|---|---|
+| **Home** | Overall progress, a day streak, "continue where you left off", and one question to wonder about each day |
+| **Modules** | Each guide rendered with **tickable proof-path checklists**, buttons to launch the interactives, and a private **notes** pad |
+| **Journal** | The `questions.md` format as a real tool: question → my attempt → where I got stuck → what I learned → new questions (which spawn new entries). Filter, search, and export to Markdown |
+| **Focus** | A "struggle first" timer: no AI and no searching until it rings, with a scratch pad that becomes the journal's "my attempt" |
+| **Map** | The interactive concept map of how everything connects ([map.html](map.html)) |
+
+**Run it**
+- **On your computer:** `python3 -m http.server` in the repo folder, then open <http://localhost:8000>. The browser offers "Install" in the address bar.
+- **On your phone:** host it with GitHub Pages (Settings → Pages → deploy from a branch → this branch, `/ (root)`). Open the Pages URL, then use *Add to Home Screen* (iPhone: Safari → Share) or *Install app* (Android: Chrome menu).
+
+Opening `index.html` directly as a file won't work, because the app needs to be served over http(s).
+
+**Your data** (progress, notes, journal, timer) stays in the browser on that device. Use *Settings → Export* to back it up, or export the journal as Markdown and commit it here.
+
+*Maintenance:* when you add or rename files, list them in `sw.js` and bump `VERSION` so the offline cache picks them up.
 
 ---
 
