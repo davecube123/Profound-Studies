@@ -12,6 +12,7 @@ This repo is also an installable **study companion app** (a PWA). It works offli
 |---|---|
 | **Home** | Overall progress, a day streak, "continue where you left off", and one question to wonder about each day |
 | **Puzzle** | **One problem you carry** for a week or a month. Log thoughts day by day; hints unlock only after you've come back on more separate days, and the solution opens when you mark it solved. A new puzzle of the week (or month) every period, and you can add your own. The library lives in [`puzzles/puzzles.md`](puzzles/puzzles.md) |
+| **News** | Recent developments on these exact questions (twin-prime records, Busy Beaver, AI and the Erdős problems, Tao on the "crisis"), each with why it connects and its sources. Filter by topic and turn any item into a journal question. Curated in [`news/news.md`](news/news.md) |
 | **Modules** | Each guide rendered with **tickable proof-path checklists**, buttons to launch the interactives, and a private **notes** pad |
 | **Journal** | The `questions.md` format as a real tool: question → my attempt → where I got stuck → what I learned → new questions (which spawn new entries). Filter, search, and export to Markdown |
 | **Focus** | A "struggle first" timer: no AI and no searching until it rings, with a scratch pad that becomes the journal's "my attempt" |
