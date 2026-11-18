@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twin Primes</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#6b6b70;--line:#e3e1db;--panel:#fff;--dot:#9b988f;--accent:#3b5bdb;--accent2:#e8590c;--good:#2b8a3e;--grid:#efede8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--dot:#6c6c75;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--grid:#24242a}}
+:root[data-theme="dark"]{--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--dot:#6c6c75;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--grid:#24242a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:.2rem 0}
+h2{font-size:1.1rem;margin:1.8rem 0 .4rem}
+.lede{color:var(--muted);margin:.2rem 0 1.2rem;max-width:64ch}
+a{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:10px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+select,button{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+svg{width:100%;height:auto;display:block;overflow:visible}
+svg text{fill:var(--muted);font:11px system-ui}
+.note{font-size:.9rem;color:var(--muted);max-width:68ch}
+.key{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--muted);margin:6px 0}
+.sw{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.9rem;margin-top:8px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+.tablewrap{overflow-x:auto}
+#ulam{width:100%;max-width:560px;aspect-ratio:1;display:block;margin:0 auto;image-rendering:pixelated;border-radius:6px}
+.formula{font-family:ui-serif,Georgia,serif;font-size:1.05rem;text-align:center;margin:10px 0;color:var(--fg)}
+</style>
+</head>
+<body>
+<main>
+<a href="../index.html">← map</a>
+<h1>Twin primes: order or chance?</h1>
+<p class="lede">The primes follow a rule with no randomness in it. Yet if you <i>pretend</i> each number n is prime with probability 1/ln n, then correct for the fact that primes are odd, you can predict how many twin pairs (p, p+2) there are with startling accuracy. That prediction is still unproven.</p>
+
+<div class="formula">π₂(x) ≈ 2·C₂·∫₂ˣ dt/(ln t)² , &nbsp; C₂ = ∏<sub>p≥3</sub> p(p−2)/(p−1)² ≈ 0.66016</div>
+
+<div class="panel">
+  <div class="controls">
+    <label>sieve up to <select id="N"><option value="100000">100,000</option><option value="1000000" selected>1,000,000</option><option value="10000000">10,000,000</option><option value="30000000">30,000,000</option></select></label>
+    <button id="run" class="primary">Compute</button>
+    <span class="note" id="status"></span>
+  </div>
+
+  <h2 style="margin-top:.4rem">1 · Counting twins vs the predictions</h2>
+  <div class="key">
+    <span><i class="sw" style="background:var(--accent2)"></i>actual count π₂(x)</span>
+    <span><i class="sw" style="background:var(--accent)"></i>Hardy–Littlewood prediction</span>
+    <span><i class="sw" style="background:var(--dot)"></i>naive random model x/(ln x)²</span>
+  </div>
+  <div id="c1"></div>
+
+  <h2>2 · Ratio actual ÷ Hardy–Littlewood (log scale for x)</h2>
+  <p class="note">If the conjecture is right, this should approach 1. Small x is noisy, but watch how steady the curve becomes.</p>
+  <div id="c2"></div>
+  <div class="tablewrap" id="tbl"></div>
+
+  <h2>3 · Gaps between consecutive primes</h2>
+  <p class="note">Gaps of 6, 12 and 18 stand out. A number that is ≡ 1 or 5 (mod 6) can be prime, so primes avoid multiples of 2 and 3, and gaps that are multiples of 6 keep both residues "safe". This is the same kind of correction that gives C₂.</p>
+  <div id="c3"></div>
+</div>
+
+<h2>4 · The Ulam spiral: twins in the plane</h2>
+<p class="note">Write 1, 2, 3, … in a square spiral. Grey dots are primes, and the highlighted ones belong to a twin pair. The diagonal streaks come from quadratic polynomials that are unusually rich in primes (Euler's n² + n + 41 is the famous example). That is structure hiding inside "randomness".</p>
+<div class="panel"><canvas id="ulam"></canvas></div>
+
+<h2>Questions</h2>
+<ul class="note">
+  <li>Why must every twin pair after (3, 5) be of the form (6k−1, 6k+1)?</li>
+  <li>The naive model underestimates by a factor of 2C₂ ≈ 1.32. Derive that factor from the prime 2 (and then 3, 5, …).</li>
+  <li>Brun proved the sum of 1/p over twin primes converges (to ≈ 1.902). So twins are "rare". Yet we expect infinitely many. How can both be true?</li>
+</ul>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const C2=0.6601618158468696;
+const NS='http://www.w3.org/2000/svg';
+
+function sieve(n){
+  const s=new Uint8Array(n+1).fill(1); s[0]=s[1]=0;
+  for (let p=2;p*p<=n;p++) if (s[p]) for (let k=p*p;k<=n;k+=p) s[k]=0;
+  return s;
+}
+function li2(x){ // ∫_2^x dt/ln²t via t=e^u, Simpson
+  const a=Math.log(2), b=Math.log(x), m=600, h=(b-a)/m, f=u=>Math.exp(u)/(u*u);
+  let s=f(a)+f(b); for (let i=1;i<m;i++) s+=(i%2?4:2)*f(a+i*h); return s*h/3;
+}
+const HL=x=>2*C2*li2(x), naive=x=>x/Math.log(x)**2;
+
+function el(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function fmt(v){ if (v>=1e6) return +(v/1e6).toFixed(1)+'M'; if (v>=1e3) return +(v/1e3).toFixed(1)+'k'; return Math.round(v*100)/100+''; }
+
+function chart(target, series, {logx=false, ymin=null, ymax=null, yticks=5, refLine=null}={}){
+  const W=900, H=300, L=56, R=14, T=10, B=30;
+  const all=series.flatMap(s=>s.pts);
+  let x0=logx?Math.min(...all.map(p=>p[0])):0, x1=Math.max(...all.map(p=>p[0]));
+  let y0=ymin??Math.min(0,...all.map(p=>p[1])), y1=ymax??Math.max(...all.map(p=>p[1]));
+  const X=v=> L+(logx?(Math.log10(v)-Math.log10(x0))/(Math.log10(x1)-Math.log10(x0)):(v-x0)/(x1-x0))*(W-L-R);
+  const Y=v=> T+(1-(v-y0)/(y1-y0))*(H-T-B);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  for (let i=0;i<=yticks;i++){ const v=y0+(y1-y0)*i/yticks; el('line',{x1:L,x2:W-R,y1:Y(v),y2:Y(v),stroke:css('--grid')},svg); const t=el('text',{x:L-6,y:Y(v)+4,'text-anchor':'end'},svg); t.textContent=fmt(v); }
+  const xt = logx ? (()=>{const a=[];for(let e=Math.ceil(Math.log10(x0));e<=Math.floor(Math.log10(x1));e++)a.push(10**e);return a;})() : [0,.25,.5,.75,1].map(f=>x0+(x1-x0)*f);
+  xt.forEach(v=>{ const t=el('text',{x:X(v),y:H-8,'text-anchor':'middle'},svg); t.textContent=logx?'10^'+Math.round(Math.log10(v)):fmt(v); });
+  if (refLine!==null) el('line',{x1:L,x2:W-R,y1:Y(refLine),y2:Y(refLine),stroke:css('--fg'),'stroke-dasharray':'4 4','stroke-opacity':.5},svg);
+  series.forEach(s=>{ el('path',{d:s.pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(''),fill:'none',stroke:s.color,'stroke-width':s.w||2,'stroke-dasharray':s.dash||''},svg); });
+  target.innerHTML=''; target.appendChild(svg);
+}
+function bars(target, data){
+  const W=900,H=240,L=56,R=10,T=10,B=30, mx=Math.max(...data.map(d=>d[1]));
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`}), bw=(W-L-R)/data.length;
+  data.forEach(([g,c],i)=>{
+    const h=c/mx*(H-T-B);
+    el('rect',{x:L+i*bw+2,y:H-B-h,width:bw-4,height:h,rx:2,fill: g%6===0?css('--accent2'):css('--dot')},svg);
+    const t=el('text',{x:L+i*bw+bw/2,y:H-12,'text-anchor':'middle'},svg); t.textContent=g;
+  });
+  const t=el('text',{x:L-6,y:T+8,'text-anchor':'end'},svg); t.textContent=fmt(mx);
+  target.innerHTML=''; target.appendChild(svg);
+}
+
+function run(){
+  const N=+$('N').value; $('status').textContent='sieving…';
+  setTimeout(()=>{
+    const t0=performance.now(), s=sieve(N+2);
+    const samples=260, pts=[], ratio=[], naivePts=[], hlPts=[];
+    const checkpoints=new Set(); for(let e=2;10**e<=N;e++) checkpoints.add(10**e);
+    const step=N/samples; let next=step, count=0, prev=0, rows=[];
+    const gaps=new Map();
+    // log-spaced sample points for the ratio chart
+    const logPts=[]; for(let i=0;i<=200;i++) logPts.push(Math.round(10**(2+(Math.log10(N)-2)*i/200)));
+    let li=0;
+    for (let p=2;p<=N;p++){
+      if (s[p]){
+        if (prev) gaps.set(p-prev,(gaps.get(p-prev)||0)+1);
+        prev=p;
+      }
+      if (p>=3 && s[p-2] && s[p]) count++;          // pair (p-2, p) has p <= x
+      if (p>=next){ pts.push([p,count]); hlPts.push([p,HL(p)]); naivePts.push([p,naive(p)]); next+=step; }
+      while (li<logPts.length && logPts[li]===p){ if (p>=100) ratio.push([p,count/HL(p)]); li++; }
+      if (checkpoints.has(p)) rows.push([p,count,HL(p),naive(p)]);
+    }
+    chart($('c1'),[
+      {pts:naivePts,color:css('--dot'),dash:'5 4'},
+      {pts:hlPts,color:css('--accent')},
+      {pts:pts,color:css('--accent2'),w:2.5}]);
+    chart($('c2'),[{pts:ratio,color:css('--accent2'),w:2}],{logx:true,ymin:0.6,ymax:1.2,yticks:6,refLine:1});
+    $('tbl').innerHTML='<table><tr><th>x</th><th>twin pairs</th><th>Hardy–Littlewood</th><th>naive</th><th>actual ÷ HL</th></tr>'+
+      rows.map(r=>`<tr><td>${r[0].toLocaleString()}</td><td>${r[1].toLocaleString()}</td><td>${Math.round(r[2]).toLocaleString()}</td><td>${Math.round(r[3]).toLocaleString()}</td><td>${(r[1]/r[2]).toFixed(4)}</td></tr>`).join('')+'</table>';
+    const g=[]; for(let k=2;k<=36;k+=2) g.push([k,gaps.get(k)||0]); bars($('c3'),g);
+    $('status').textContent=`done in ${Math.round(performance.now()-t0)} ms · ${count.toLocaleString()} twin pairs up to ${N.toLocaleString()}`;
+  },20);
+}
+
+function ulam(){
+  const cv=$('ulam'), S=241, n=S*S, s=sieve(n+2), ctx=cv.getContext('2d');
+  cv.width=S; cv.height=S;
+  ctx.fillStyle=css('--panel'); ctx.fillRect(0,0,S,S);
+  let x=(S-1)/2, y=(S-1)/2, dx=1, dy=0, len=1, k=1;
+  const put=(v)=>{ if(!s[v]) return; const twin=(s[v+2])||(v>2&&s[v-2]); ctx.fillStyle= twin?css('--accent2'):css('--dot'); ctx.fillRect(x,y,1,1); };
+  put(1);
+  while (k<n){
+    for (let rep=0;rep<2;rep++){
+      for (let i=0;i<len && k<n;i++){ x+=dx; y+=dy; k++; put(k); }
+      [dx,dy]=[-dy,dx];   // turn left
+    }
+    len++;
+  }
+}
+$('run').onclick=run;
+run(); ulam();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{run();ulam();});
+</script>
+</body>
+</html>

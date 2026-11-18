@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game of Life</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#6b6b70;--line:#e3e1db;--panel:#fff;--cell:#1d1d1f;--young:#3b5bdb;--grid:#efede8;--accent:#3b5bdb;--accent2:#e8590c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--cell:#ececf0;--young:#7c96ff;--grid:#222228;--accent:#7c96ff;--accent2:#ff9147}}
+:root[data-theme="dark"]{--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--cell:#ececf0;--young:#7c96ff;--grid:#222228;--accent:#7c96ff;--accent2:#ff9147}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:.2rem 0}
+h2{font-size:1.1rem;margin:1.6rem 0 .5rem}
+.lede{color:var(--muted);margin:.2rem 0 1.2rem;max-width:62ch}
+a{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:12px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+select,button{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+canvas{width:100%;display:block;touch-action:none}
+#board{cursor:crosshair;border-radius:6px}
+.stats{display:flex;flex-wrap:wrap;gap:18px;margin-top:10px;font-size:.9rem;color:var(--muted)}
+.stats b{color:var(--fg);font-variant-numeric:tabular-nums}
+.note{font-size:.9rem;color:var(--muted)}
+#desc{min-height:3em;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+<a href="../index.html">← map</a>
+<h1>The Game of Life</h1>
+<p class="lede">Birth on exactly 3 neighbours, survival on 2 or 3, death otherwise. Nothing in those rules mentions motion, guns or computers. Click or drag on the grid to draw. Newborn cells are tinted.</p>
+
+<div class="panel">
+  <div class="controls">
+    <button id="play" class="primary">Play</button>
+    <button id="step">Step</button>
+    <label>pattern <select id="pat"></select></label>
+    <button id="soup">Random soup</button>
+    <button id="clear">Clear</button>
+    <label>speed <input id="speed" type="range" min="1" max="60" value="15"></label>
+  </div>
+  <canvas id="board"></canvas>
+  <div class="stats"><span>generation <b id="gen">0</b></span><span>population <b id="pop">0</b></span></div>
+  <canvas id="spark" height="70" style="margin-top:6px"></canvas>
+  <p class="note" id="desc"></p>
+</div>
+
+<h2>Things to try and wonder about</h2>
+<ul class="note">
+  <li><b>Glider:</b> after 4 generations it has the same shape, moved one cell diagonally. Its speed, c/4, is a "law of physics" that emerges from the rules.</li>
+  <li><b>R-pentomino:</b> 5 cells, about 1100 generations of chaos. (On this wrapped-around board it may hit its own debris. On an infinite board it settles at generation 1103.) Could you have predicted that without running it? This is <i>computational irreducibility</i>.</li>
+  <li><b>Glider gun:</b> the population graph becomes a staircase that grows forever, one glider every 30 generations.</li>
+  <li><b>Random soup:</b> run it many times. Chaos always seems to cool into the same small set of "species". Why?</li>
+  <li>Life is Turing complete, so in general "will this pattern ever die out?" is <b>undecidable</b>. See module 05.</li>
+</ul>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const COLS=120, ROWS=80;
+let grid=new Uint8Array(COLS*ROWS), age=new Uint16Array(COLS*ROWS), gen=0, running=false, hist=[], acc=0;
+
+const PATTERNS = {
+  'Glider': ['bo$2bo$3o!', 'The smallest spaceship. It travels diagonally at a quarter of the speed of light (c/4).'],
+  'Lightweight spaceship': ['bo2bo$o4b$o3bo$4o!', 'An orthogonal spaceship moving at c/2.'],
+  'Pulsar': ['2b3o3b3o2b2$o4bobo4bo$o4bobo4bo$o4bobo4bo$2b3o3b3o2b2$2b3o3b3o2b$o4bobo4bo$o4bobo4bo$o4bobo4bo2$2b3o3b3o!', 'A period-3 oscillator: a heartbeat made of 48 cells.'],
+  'R-pentomino': ['b2o$2ob$bo!', 'Five cells, about 1100 generations of chaos. Discovered by Conway in 1969.'],
+  'Acorn': ['bo5b$3bo3b$2o2b3o!', 'Seven cells that take 5206 generations to stabilize on an infinite board.'],
+  'Diehard': ['6bob$2o6b$bo3b3o!', 'Vanishes completely after exactly 130 generations.'],
+  'Gosper glider gun': ['24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!', 'The first known infinite-growth pattern (Gosper, 1970). It fires a glider every 30 generations, a machine emerging from local rules. (This board wraps around at the edges, so the gliders eventually return and crash into the gun. Watch what happens.)'],
+};
+function parseRLE(rle){
+  const cells=[]; let x=0,y=0,num='';
+  for (const ch of rle){
+    if (ch>='0'&&ch<='9'){num+=ch;continue;}
+    const n=num===''?1:parseInt(num); num='';
+    if (ch==='b'||ch==='.') x+=n;
+    else if (ch==='$'){ y+=n; x=0; }
+    else if (ch==='!') break;
+    else { for(let i=0;i<n;i++) cells.push([x+i,y]); x+=n; }
+  }
+  return cells;
+}
+function place(name){
+  clear();
+  const cells=parseRLE(PATTERNS[name][0]);
+  const w=Math.max(...cells.map(c=>c[0]))+1, h=Math.max(...cells.map(c=>c[1]))+1;
+  let ox=Math.floor((COLS-w)/2), oy=Math.floor((ROWS-h)/2);
+  if (name==='Glider'||name==='Lightweight spaceship'){ox=10;oy=10;}
+  if (name==='Gosper glider gun'){ox=4;oy=4;}
+  for (const [x,y] of cells){ grid[(oy+y)*COLS+ox+x]=1; age[(oy+y)*COLS+ox+x]=1; }
+  $('desc').textContent=PATTERNS[name][1];
+  record(); draw();
+}
+function clear(){ grid.fill(0); age.fill(0); gen=0; hist=[]; $('desc').textContent=''; record(); draw(); }
+function soup(){
+  clear();
+  for (let y=10;y<ROWS-10;y++) for (let x=15;x<COLS-15;x++) if (Math.random()<0.35){grid[y*COLS+x]=1;age[y*COLS+x]=1;}
+  $('desc').textContent='35% random fill. Watch the population graph: a burst of chaos, then a slow cooling into stable "species".';
+  record(); draw();
+}
+function step(){
+  const next=new Uint8Array(COLS*ROWS);
+  for (let y=0;y<ROWS;y++){
+    const ym=((y-1+ROWS)%ROWS)*COLS, y0=y*COLS, yp=((y+1)%ROWS)*COLS;
+    for (let x=0;x<COLS;x++){
+      const xm=(x-1+COLS)%COLS, xp=(x+1)%COLS;
+      const n=grid[ym+xm]+grid[ym+x]+grid[ym+xp]+grid[y0+xm]+grid[y0+xp]+grid[yp+xm]+grid[yp+x]+grid[yp+xp];
+      const i=y0+x;
+      next[i]= (n===3 || (n===2 && grid[i])) ? 1 : 0;
+      age[i]= next[i] ? Math.min(age[i]+1, 999) : 0;
+    }
+  }
+  grid=next; gen++; record();
+}
+function record(){
+  let p=0; for (let i=0;i<grid.length;i++) p+=grid[i];
+  hist.push(p); if (hist.length>600) hist.shift();
+  $('gen').textContent=gen; $('pop').textContent=p;
+}
+const board=$('board'), bctx=board.getContext('2d'), spark=$('spark'), sctx=spark.getContext('2d');
+let cs=6;
+function resize(){
+  const dpr=window.devicePixelRatio||1, w=board.clientWidth;
+  cs=w/COLS; board.style.height=(cs*ROWS)+'px';
+  board.width=w*dpr; board.height=cs*ROWS*dpr; bctx.setTransform(dpr,0,0,dpr,0,0);
+  spark.width=spark.clientWidth*dpr; spark.height=70*dpr; sctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+function draw(){
+  const W=board.clientWidth,H=cs*ROWS;
+  bctx.fillStyle=css('--grid'); bctx.fillRect(0,0,W,H);
+  const cell=css('--cell'), young=css('--young');
+  for (let y=0;y<ROWS;y++) for (let x=0;x<COLS;x++){
+    const i=y*COLS+x; if (!grid[i]) continue;
+    bctx.fillStyle = age[i]<=1 ? young : cell;
+    bctx.fillRect(x*cs+.5,y*cs+.5,Math.max(1,cs-1),Math.max(1,cs-1));
+  }
+  // population sparkline
+  const SW=spark.clientWidth, SH=70; sctx.clearRect(0,0,SW,SH);
+  if (hist.length>1){
+    const mx=Math.max(...hist,1);
+    sctx.strokeStyle=css('--accent2'); sctx.lineWidth=1.5; sctx.beginPath();
+    hist.forEach((v,k)=>{const px=k/(hist.length-1)*SW, py=SH-4-(v/mx)*(SH-14); k?sctx.lineTo(px,py):sctx.moveTo(px,py);});
+    sctx.stroke();
+    sctx.fillStyle=css('--muted'); sctx.font='11px system-ui'; sctx.fillText('population (max '+mx+')',4,11);
+  }
+}
+function loop(){
+  if(!running) return;
+  acc += +$('speed').value/60;
+  while (acc>=1){ step(); acc-=1; }
+  draw(); requestAnimationFrame(loop);
+}
+$('play').onclick=()=>{ running=!running; $('play').textContent=running?'Pause':'Play'; if(running) loop(); };
+$('step').onclick=()=>{ step(); draw(); };
+$('clear').onclick=clear; $('soup').onclick=soup;
+const sel=$('pat'); Object.keys(PATTERNS).forEach(k=>{const o=document.createElement('option');o.textContent=k;sel.appendChild(o);});
+sel.onchange=()=>place(sel.value);
+let drawing=false, paintVal=1;
+function cellAt(e){ const r=board.getBoundingClientRect(); return [Math.floor((e.clientX-r.left)/cs), Math.floor((e.clientY-r.top)/cs)]; }
+board.addEventListener('pointerdown',e=>{ const [x,y]=cellAt(e); if(x<0||y<0||x>=COLS||y>=ROWS) return; drawing=true; paintVal=grid[y*COLS+x]?0:1; grid[y*COLS+x]=paintVal; age[y*COLS+x]=1; draw(); });
+board.addEventListener('pointermove',e=>{ if(!drawing) return; const [x,y]=cellAt(e); if(x<0||y<0||x>=COLS||y>=ROWS) return; grid[y*COLS+x]=paintVal; age[y*COLS+x]=1; draw(); });
+window.addEventListener('pointerup',()=>{ if(drawing){drawing=false; record();} });
+window.addEventListener('resize',resize);
+resize(); place('Glider');
+</script>
+</body>
+</html>

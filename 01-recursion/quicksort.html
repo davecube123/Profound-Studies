@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quicksort, Seen</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#6b6b70;--line:#e3e1db;--panel:#fff;--bar:#b9b6ad;--accent:#3b5bdb;--accent2:#e8590c;--good:#2b8a3e;--band:rgba(59,91,219,.08)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--bar:#55555e;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--band:rgba(124,150,255,.12)}}
+:root[data-theme="dark"]{--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--bar:#55555e;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--band:rgba(124,150,255,.12)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:.2rem 0}
+.lede{color:var(--muted);margin:.2rem 0 1.2rem;max-width:62ch}
+a{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:12px}
+label{font-size:.85rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+select,button,input[type=range]{font:inherit}
+select,button{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+canvas{width:100%;display:block}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.78rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted);margin-top:8px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.9rem}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+.note{font-size:.9rem;color:var(--muted)}
+h2{font-size:1.1rem;margin:1.6rem 0 .5rem}
+</style>
+</head>
+<body>
+<main>
+<a href="../index.html">← map</a>
+<h1>Quicksort, seen</h1>
+<p class="lede">Pick a pivot. Put smaller things left, larger things right. Do the same to each side. The strip under the bars is the <b>call stack</b>: each row is one level of recursion, showing which slice that call is working on.</p>
+
+<div class="panel">
+  <div class="controls">
+    <label>n <input id="n" type="range" min="8" max="200" value="60"><span id="nv">60</span></label>
+    <label>input <select id="input"><option value="random">random</option><option value="sorted">already sorted</option><option value="reversed">reversed</option><option value="few">few distinct values</option></select></label>
+    <label>pivot <select id="pivot"><option value="first">first element</option><option value="random">random</option><option value="median3">median of three</option></select></label>
+    <label>speed <input id="speed" type="range" min="1" max="60" value="6"></label>
+    <button id="go" class="primary">Sort</button>
+    <button id="reset">New input</button>
+  </div>
+  <canvas id="cv" height="360"></canvas>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--accent2)"></i>pivot</span>
+    <span><i class="sw" style="background:var(--accent)"></i>being compared</span>
+    <span><i class="sw" style="background:var(--good)"></i>in final place</span>
+    <span><i class="sw" style="background:var(--band);border:1px solid var(--accent)"></i>current sub-problem</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="comps">0</b><span>comparisons so far</span></div>
+    <div class="stat"><b id="depth">0</b><span>max recursion depth</span></div>
+    <div class="stat"><b id="worst">0</b><span>worst case n(n−1)/2</span></div>
+    <div class="stat"><b id="avg">0</b><span>random-pivot average ≈ 2n ln n</span></div>
+  </div>
+</div>
+
+<h2>Experiment: does the pivot rule matter?</h2>
+<p class="note">Counts comparisons instantly (no animation) for each input type and pivot rule. Random-pivot results are averaged over 30 runs. Guess the answers before you press the button.</p>
+<div class="panel">
+  <div class="controls">
+    <label>n <select id="cn"><option>100</option><option selected>1000</option><option>5000</option></select></label>
+    <button id="cmp" class="primary">Run experiment</button>
+  </div>
+  <div id="tbl"></div>
+</div>
+
+<h2>What to notice</h2>
+<ul class="note">
+  <li>With <b>first-element pivot</b> on <b>sorted</b> input, the call stack becomes a staircase n levels deep. Every split peels off just one element.</li>
+  <li>With a <b>random pivot</b>, the stack stays about 2·log₂ n deep on <i>every</i> input. The bad luck has moved from the data to the coin, and the coin is fair.</li>
+  <li>Proof idea for the average: items of rank i and j are compared only if one of them is the first pivot picked from ranks i…j, which has probability 2/(j−i+1). Summing over all pairs gives ≈ 2n ln n.</li>
+</ul>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let arr = [], gen = null, running = false, frame = null, sorted = [], comps = 0, maxDepth = 0, stack = [];
+
+function makeInput(n, kind){
+  let a = Array.from({length:n}, (_,i)=>i+1);
+  if (kind==='few') a = a.map(()=>1+Math.floor(Math.random()*5)*Math.ceil(n/5));
+  if (kind==='random' || kind==='few') for (let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  if (kind==='reversed') a.reverse();
+  return a;
+}
+function choosePivot(a, lo, hi, rule){
+  if (rule==='random') return lo + Math.floor(Math.random()*(hi-lo+1));
+  if (rule==='median3'){
+    const m = (lo+hi)>>1, x=a[lo], y=a[m], z=a[hi];
+    if ((x<=y&&y<=z)||(z<=y&&y<=x)) return m;
+    if ((y<=x&&x<=z)||(z<=x&&x<=y)) return lo;
+    return hi;
+  }
+  return lo;
+}
+function* qs(a, lo, hi, depth, rule){
+  stack.push([lo,hi]); maxDepth = Math.max(maxDepth, depth);
+  if (lo >= hi){ if (lo===hi) sorted[lo]=true; yield {lo,hi}; stack.pop(); return; }
+  const p = choosePivot(a, lo, hi, rule);
+  [a[p],a[hi]]=[a[hi],a[p]];
+  const pv = a[hi]; let i = lo;
+  for (let j=lo;j<hi;j++){
+    comps++;
+    yield {lo,hi,i,j,pivot:hi};
+    if (a[j] < pv){ [a[i],a[j]]=[a[j],a[i]]; i++; }
+  }
+  [a[i],a[hi]]=[a[hi],a[i]]; sorted[i]=true;
+  yield {lo,hi,pivot:i};
+  yield* qs(a, lo, i-1, depth+1, rule);
+  yield* qs(a, i+1, hi, depth+1, rule);
+  stack.pop();
+}
+// Iterative counter for the experiment (no recursion limits)
+function countComparisons(a, rule){
+  let c = 0; const st=[[0,a.length-1]];
+  while (st.length){
+    const [lo,hi] = st.pop(); if (lo>=hi) continue;
+    const p = choosePivot(a, lo, hi, rule); [a[p],a[hi]]=[a[hi],a[p]];
+    const pv=a[hi]; let i=lo;
+    for (let j=lo;j<hi;j++){ c++; if (a[j]<pv){ [a[i],a[j]]=[a[j],a[i]]; i++; } }
+    [a[i],a[hi]]=[a[hi],a[i]]; st.push([lo,i-1],[i+1,hi]);
+  }
+  return c;
+}
+
+function resize(){
+  const dpr = window.devicePixelRatio||1, w = cv.clientWidth;
+  cv.width = w*dpr; cv.height = 360*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+}
+function draw(){
+  const W = cv.clientWidth, H = 360, n = arr.length;
+  const barsH = 230, stackTop = 248;
+  ctx.clearRect(0,0,W,H);
+  const bw = W / n, maxV = Math.max(...arr);
+  if (frame){
+    ctx.fillStyle = css('--band');
+    ctx.fillRect(frame.lo*bw, 0, (frame.hi-frame.lo+1)*bw, barsH);
+  }
+  for (let k=0;k<n;k++){
+    let c = css('--bar');
+    if (sorted[k]) c = css('--good');
+    if (frame){
+      if (k===frame.pivot) c = css('--accent2');
+      else if (k===frame.j) c = css('--accent');
+    }
+    ctx.fillStyle = c;
+    const h = (arr[k]/maxV)*(barsH-8);
+    ctx.fillRect(k*bw+ (bw>4?1:0), barsH-h, Math.max(1,bw-(bw>4?2:0)), h);
+  }
+  if (frame && frame.i!==undefined){
+    ctx.strokeStyle = css('--fg'); ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(frame.i*bw,0); ctx.lineTo(frame.i*bw,barsH); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // call stack strip
+  ctx.fillStyle = css('--muted'); ctx.font = '11px system-ui';
+  ctx.fillText('call stack (deeper ↓)', 0, stackTop-4);
+  const rows = Math.max(stack.length, 1), rh = Math.min(10, (H-stackTop-4)/Math.max(rows, 10));
+  stack.forEach(([lo,hi],d)=>{
+    ctx.fillStyle = d===stack.length-1 ? css('--accent') : css('--bar');
+    ctx.fillRect(lo*bw, stackTop + d*rh, Math.max(2,(hi-lo+1)*bw), Math.max(1,rh-1));
+  });
+}
+function stats(){
+  const n = arr.length;
+  $('comps').textContent = comps.toLocaleString();
+  $('depth').textContent = maxDepth;
+  $('worst').textContent = (n*(n-1)/2).toLocaleString();
+  $('avg').textContent = Math.round(2*n*Math.log(n)).toLocaleString();
+}
+function reset(){
+  running=false; gen=null; frame=null; stack=[]; comps=0; maxDepth=0;
+  arr = makeInput(+$('n').value, $('input').value); sorted = arr.map(()=>false);
+  $('go').textContent='Sort'; stats(); draw();
+}
+function loop(){
+  if (!running) return;
+  const steps = +$('speed').value;
+  for (let s=0;s<steps;s++){
+    const r = gen.next();
+    if (r.done){ running=false; frame=null; stack=[]; sorted=sorted.map(()=>true); $('go').textContent='Sort again'; break; }
+    frame = r.value;
+  }
+  stats(); draw(); requestAnimationFrame(loop);
+}
+$('go').onclick = ()=>{
+  if (running){ running=false; $('go').textContent='Resume'; return; }
+  if (!gen || $('go').textContent==='Sort again'){ reset(); gen = qs(arr,0,arr.length-1,0,$('pivot').value); }
+  running = true; $('go').textContent='Pause'; loop();
+};
+$('reset').onclick = reset;
+['input','pivot'].forEach(id=>$(id).onchange = reset);
+$('n').oninput = ()=>{ $('nv').textContent=$('n').value; reset(); };
+
+$('cmp').onclick = ()=>{
+  const n = +$('cn').value, kinds=['random','sorted','reversed','few'], rules=['first','median3','random'];
+  let html = `<table><tr><th>input \\ pivot</th><th>first element</th><th>median of three</th><th>random (avg of 30)</th></tr>`;
+  for (const k of kinds){
+    const base = makeInput(n,k);
+    html += `<tr><td>${{random:'random',sorted:'already sorted',reversed:'reversed',few:'few distinct values'}[k]}</td>`;
+    for (const r of rules){
+      const runs = r==='random'?30:1; let tot=0;
+      for (let t=0;t<runs;t++) tot += countComparisons(base.slice(), r);
+      html += `<td>${Math.round(tot/runs).toLocaleString()}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += `</table><p class="note">Reference: n(n−1)/2 = ${(n*(n-1)/2).toLocaleString()} · 2n ln n ≈ ${Math.round(2*n*Math.log(n)).toLocaleString()}. Why does "few distinct values" hurt every rule? (Hint: what happens to items equal to the pivot?)</p>`;
+  $('tbl').innerHTML = html;
+};
+window.addEventListener('resize', resize);
+reset(); resize();
+</script>
+</body>
+</html>

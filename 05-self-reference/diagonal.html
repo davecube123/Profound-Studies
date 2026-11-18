@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Diagonal Argument</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--muted:#6b6b70;--line:#e3e1db;--panel:#fff;--accent:#3b5bdb;--accent2:#e8590c;--good:#2b8a3e;--hl:rgba(59,91,219,.12);--bad:#c92a2a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--hl:rgba(124,150,255,.16);--bad:#ff6b6b}}
+:root[data-theme="dark"]{--bg:#141417;--fg:#ececf0;--muted:#9a9aa3;--line:#2c2c33;--panel:#1c1c21;--accent:#7c96ff;--accent2:#ff9147;--good:#5cc77a;--hl:rgba(124,150,255,.16);--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:900px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.6rem;margin:.2rem 0}
+h2{font-size:1.1rem;margin:1.6rem 0 .4rem}
+.lede{color:var(--muted);margin:.2rem 0 1.2rem;max-width:64ch}
+a{color:var(--accent)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tabs button,.controls button{font:inherit;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button.primary{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+.tw{overflow-x:auto}
+table{border-collapse:separate;border-spacing:3px;margin:0 auto;font-variant-numeric:tabular-nums}
+td,th{width:2.6em;height:2.2em;text-align:center;border-radius:6px;font-size:.95rem}
+th{color:var(--muted);font-weight:500;font-size:.8rem;white-space:nowrap}
+th.rowh{text-align:right;padding-right:8px;width:auto}
+td{background:var(--bg);border:1px solid var(--line);transition:background .25s,color .25s}
+td.diag{border-color:var(--accent)}
+td.cur{background:var(--hl);border-color:var(--accent);font-weight:700}
+td.dim{color:var(--muted);opacity:.5;border:none;background:none}
+tr.new td{background:none;border:1px dashed var(--accent2);color:var(--accent2);font-weight:700}
+tr.new td.filled{background:rgba(232,89,12,.1)}
+td.boom{background:var(--bad);color:#fff;border-color:var(--bad);animation:pulse .6s ease-in-out 3}
+tr.match th{color:var(--accent2)}
+@keyframes pulse{50%{transform:scale(1.18)}}
+#explain{margin-top:12px;min-height:5.5em}
+.note{font-size:.92rem;color:var(--muted);max-width:68ch}
+.big{font-size:1rem;color:var(--fg)}
+.skeleton{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:8px}
+.skeleton div{border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.9rem;background:var(--panel)}
+.skeleton b{display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+<main>
+<a href="../index.html">← map</a>
+<h1>One picture, three revolutions</h1>
+<p class="lede">Cantor (1891), Gödel (1931) and Turing (1936) all used the same move: <b>list everything, walk down the diagonal, do the opposite</b>. Learn this picture once and you've seen the core of all three.</p>
+
+<div class="panel">
+  <div class="tabs">
+    <button data-mode="cantor" class="on">Cantor: infinite sequences</button>
+    <button data-mode="turing">Turing: programs</button>
+    <button data-mode="godel">Gödel: sentences</button>
+  </div>
+  <div class="tw"><table id="t"></table></div>
+  <div class="controls">
+    <button id="stepb" class="primary">Step along the diagonal</button>
+    <button id="where">Where is the new row in the list?</button>
+    <button id="shuffle">New list</button>
+  </div>
+  <div id="explain" class="note big"></div>
+</div>
+
+<h2>The shared skeleton</h2>
+<div class="skeleton">
+  <div><b>1 · Assume a complete list</b>Every sequence, every program, every provable fact…</div>
+  <div><b>2 · Look at the diagonal</b>Row i, column i: each thing applied to <i>itself</i>. This is where self-reference enters.</div>
+  <div><b>3 · Flip it</b>Build a new object that disagrees with row i at position i, for every i.</div>
+  <div><b>4 · It can't be in the list</b>If it were row k, cell (k,k) would have to equal its own opposite.</div>
+</div>
+<p class="note" style="margin-top:12px">Cantor: there are more real numbers than whole numbers. Turing: no program decides halting. Gödel: the flipped row is a <i>sentence</i> rather than a contradiction. It is true, but the system can't prove it. Complexity theory reuses the same picture for the time-hierarchy theorem: more time lets you solve strictly more.</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const K=7;
+let bits=[], mode='cantor', pos=-1, newRow=[];
+const MODES={
+  cantor:{
+    row:i=>`s${i}`, col:j=>j, val:b=>b?'1':'0', dots:'…', newName:'new',
+    intro:'Each row is an infinite sequence of 0s and 1s, and we claim this list contains <b>all</b> of them. Step down the diagonal to build a sequence that is not on the list.',
+    step:(i,b)=>`Row s${i} has <b>${b?1:0}</b> in position ${i}, so the new sequence gets <b>${b?0:1}</b> there. It now differs from s${i}.`,
+    done:'The new sequence differs from every row in at least one place (on the diagonal). So the list was <b>not complete</b>. No list of whole numbers can name every infinite sequence (or every real number). <b>Some infinities are bigger than others.</b>',
+    where:k=>`Suppose the new sequence is row s${k}. Then its digit in position ${k} must equal s${k}'s digit in position ${k}… but we built it to be the <b>opposite</b>. Contradiction: it is in no row.`
+  },
+  turing:{
+    row:i=>`P${i}`, col:j=>`P${j}`, val:b=>b?'H':'∞', dots:'…', newName:'D',
+    intro:'Each row is a program. Each column is an input, and the inputs are the programs\' own source codes. A cell says whether program P<sub>i</sub> <b>H</b>alts or loops forever (<b>∞</b>) when given P<sub>j</sub>. Suppose a program HALTS could fill in this table.',
+    step:(i,b)=>`P${i}(P${i}) ${b?'halts':'loops'}, so D(P${i}) does the opposite: it ${b?'loops forever':'halts'}.`,
+    done:'We built D: "ask HALTS what P does on its own code, then do the opposite." Using HALTS, D is a perfectly good program, so it must be some row. Press the next button.',
+    where:k=>`D is a program, so D = P${k}. Does D halt on its own code? D(D) halts ⇔ P${k}(P${k}) halts ⇔ (by construction) D(D) does <b>not</b> halt. Contradiction. So <b>HALTS cannot exist</b>. The halting problem is undecidable.`
+  },
+  godel:{
+    row:i=>`F${i}(x)`, col:j=>`⌜F${j}⌝`, val:b=>b?'✓':'✗', dots:'…', newName:'D',
+    intro:'Each row is a formula F<sub>i</sub>(x) about a number x. Each column is a <b>Gödel number</b>, the code of a formula. A cell is ✓ if the system can <b>prove</b> F<sub>i</sub>(⌜F<sub>j</sub>⌝). The diagonal is each formula applied to its own code.',
+    newVal:b=>b?'T':'F',
+    step:(i,b)=>`Is F${i}(⌜F${i}⌝) provable? ${b?'Yes ✓':'No ✗'}. Define D(x) = "the formula with code x, applied to its own code, is <b>not provable</b>". So D(⌜F${i}⌝) is <b>${b?'false':'true'}</b>. The bottom row records <i>truth</i>, the opposite of the diagonal's <i>provability</i>.`,
+    done:'D(x) is itself a formula, so it is some row. Feed it <b>its own code</b>: the sentence G = D(⌜D⌝) says "<i>I am not provable</i>." Press the next button.',
+    where:k=>`D = F${k}, so G = F${k}(⌜F${k}⌝) sits on the diagonal and says "this very cell is not provable". If the system proved G, it would prove a falsehood. So (if consistent) G is <b>unprovable</b>, which is exactly what G says. Unlike Cantor's case there is no contradiction, only a <b>true sentence beyond the system's reach</b>. That is the first incompleteness theorem.`
+  }
+};
+function shuffle(){ bits=Array.from({length:K},()=>Array.from({length:K},()=>Math.random()<.5)); reset(); }
+function reset(){ pos=-1; newRow=Array(K).fill(null); render(); $('explain').innerHTML=MODES[mode].intro; }
+function render(boomAt=-1){
+  const M=MODES[mode]; let h='<tr><th></th>'+Array.from({length:K},(_,j)=>`<th>${M.col(j)}</th>`).join('')+'<th></th></tr>';
+  for(let i=0;i<K;i++){
+    h+=`<tr class="${boomAt===i?'match':''}"><th class="rowh">${M.row(i)}</th>`;
+    for(let j=0;j<K;j++){
+      const cls=[i===j?'diag':'', i===j&&i===pos?'cur':'', boomAt===i&&j===i?'boom':''].join(' ');
+      h+=`<td class="${cls}">${boomAt===i&&j===i?'?':M.val(bits[i][j])}</td>`;
+    }
+    h+=`<td class="dim">${M.dots}</td></tr>`;
+  }
+  h+=`<tr><th class="rowh dim">⋮</th>${'<td class="dim">⋮</td>'.repeat(K)}<td class="dim"></td></tr>`;
+  h+=`<tr class="new"><th class="rowh" style="color:var(--accent2)">${M.newName}</th>`+newRow.map(v=>`<td class="${v===null?'':'filled'}">${v===null?'':(M.newVal||M.val)(v)}</td>`).join('')+'<td class="dim" style="border:none">…</td></tr>';
+  $('t').innerHTML=h;
+}
+$('stepb').onclick=()=>{
+  if(pos>=K-1){ $('explain').innerHTML=MODES[mode].done; return; }
+  pos++; newRow[pos]=!bits[pos][pos]; render(); $('explain').innerHTML=MODES[mode].step(pos,bits[pos][pos]);
+  if(pos===K-1) setTimeout(()=>{$('explain').innerHTML+= '<br><br>'+MODES[mode].done;},50);
+};
+$('where').onclick=()=>{
+  if(pos<K-1){ $('explain').innerHTML='First build the whole diagonal row (keep pressing "Step").'; return; }
+  const k=Math.floor(Math.random()*K); render(k); $('explain').innerHTML=MODES[mode].where(k);
+};
+$('shuffle').onclick=shuffle;
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); mode=b.dataset.mode; reset();
+});
+shuffle();
+</script>
+</body>
+</html>
