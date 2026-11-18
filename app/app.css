@@ -155,3 +155,13 @@ details.why summary{cursor:pointer;color:var(--muted);font-size:.92rem}
 .thought{border-left:2px solid var(--line);padding:2px 0 2px 12px;margin:0 0 12px}
 .thought .meta{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px}
 .thought .x{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 4px}
+
+/* install banner */
+.installbar{display:flex;align-items:center;gap:12px;max-width:860px;margin:12px auto 0;padding:10px 12px;width:calc(100% - 32px);
+  background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent2);border-radius:14px;box-shadow:var(--shadow)}
+.installbar[hidden]{display:none}
+.installbar img{border-radius:9px;flex:none}
+.ib-text{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35}
+.ib-text span{font-size:.85rem;color:var(--muted)}
+.ib-text .share{width:16px;height:16px;vertical-align:-3px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ib-x{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:0 4px;flex:none}

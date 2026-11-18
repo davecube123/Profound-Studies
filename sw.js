@@ -2,7 +2,7 @@
    Strategy: precache everything, then stale-while-revalidate, so pages open
    instantly and quietly pick up any changes you push.
    Bump VERSION when files are added or removed. */
-const VERSION = 'ps-v2';
+const VERSION = 'ps-v3';
 const FILES = [
   './', 'index.html', 'map.html', 'manifest.webmanifest',
   'app/app.css', 'app/app.js', 'app/md.js',

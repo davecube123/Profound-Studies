@@ -19,7 +19,7 @@ This repo is also an installable **study companion app** (a PWA). It works offli
 
 **Run it**
 - **On your computer:** `python3 -m http.server` in the repo folder, then open <http://localhost:8000>. The browser offers "Install" in the address bar.
-- **On your phone:** host it with GitHub Pages (Settings → Pages → deploy from a branch → this branch, `/ (root)`). Open the Pages URL, then use *Add to Home Screen* (iPhone: Safari → Share) or *Install app* (Android: Chrome menu).
+- **On your phone:** host it with GitHub Pages: repo **Settings → Pages → Build and deployment → Deploy from a branch → `ccr-5f0b52e4-xgmfju` / `(root)` → Save**. A minute later it's live at **https://davecube123.github.io/Profound-Studies/**. The app shows an install banner: one tap on Android, Chrome and Edge; on iPhone it tells you to tap Share → *Add to Home Screen*. (Pages for a *private* repo needs a paid GitHub plan; otherwise make the repo public first.)
 
 Opening `index.html` directly as a file won't work, because the app needs to be served over http(s).
 

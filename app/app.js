@@ -730,7 +730,27 @@
 
   // ----- settings -----
   let installEvt = null;
-  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (location.hash === '#/settings') renderSettings(); });
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; installBar(); if (location.hash === '#/settings') renderSettings(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; installBar(); toast('Installed. Find it on your home screen.'); });
+
+  // Install banner: one-tap install on Chrome/Edge/Android, step-by-step on iPhone/iPad.
+  const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isMobile = () => isIOS() || /android/i.test(navigator.userAgent);
+  function dismissedRecently() { try { return Date.now() - (+localStorage.getItem('ps.installDismissed') || 0) < 7 * 864e5; } catch (e) { return false; } }
+  function installBar() {
+    const bar = $('#installBar'); if (!bar) return;
+    let html = '';
+    if (!isStandalone() && !dismissedRecently()) {
+      if (installEvt) html = `<img src="icons/icon-192.png" alt="" width="36" height="36"><div class="ib-text"><b>Install Profound Studies</b><span>Opens full-screen from your home screen and works offline.</span></div><button class="btn primary" id="ibGo">Install</button>`;
+      else if (isIOS()) html = `<img src="icons/icon-192.png" alt="" width="36" height="36"><div class="ib-text"><b>Add to your home screen</b><span>Tap <svg class="share" viewBox="0 0 24 24" aria-label="Share"><path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8"/></svg> Share, then <b>Add to Home Screen</b>.</span></div>`;
+      else if (isMobile()) html = `<img src="icons/icon-192.png" alt="" width="36" height="36"><div class="ib-text"><b>Add to your home screen</b><span>Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.</span></div>`;
+    }
+    if (html) html += `<button class="ib-x" id="ibX" aria-label="Dismiss">×</button>`;
+    bar.innerHTML = html; bar.hidden = !html;
+    const go = $('#ibGo'); if (go) go.onclick = async () => { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if (r.outcome !== 'accepted') { try { localStorage.setItem('ps.installDismissed', Date.now()); } catch (e) { } } installBar(); };
+    const x = $('#ibX'); if (x) x.onclick = () => { try { localStorage.setItem('ps.installDismissed', Date.now()); } catch (e) { } installBar(); };
+  }
   function applyTheme() { if (S.theme === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', S.theme); }
   function renderSettings() {
     const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -783,5 +803,6 @@
     navigator.serviceWorker.register('sw.js').catch(() => { });
   }
   tickBadge();
+  installBar();
   route();
 })();
