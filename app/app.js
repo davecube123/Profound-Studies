@@ -30,7 +30,7 @@
   // ---------- state ----------
   const KEY = 'profound-studies.v1';
   const blank = () => ({ checks: {}, journal: [], notes: {}, activity: {}, visits: {}, last: null, timer: null, theme: 'system', totals: {},
-    carry: null, pz: {}, pzCadence: 'week', customPuzzles: [] });
+    carry: null, pz: {}, pzCadence: 'week', customPuzzles: [], newsRead: {} });
   let S;
   try { S = Object.assign(blank(), JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { S = blank(); }
   let saveT = null;
@@ -110,6 +110,7 @@
     [/^\/puzzle$/, () => renderPuzzle(null)],
     [/^\/puzzle\/([\w-]+)$/, renderPuzzle],
     [/^\/puzzles$/, renderPuzzleLib],
+    [/^\/news$/, renderNews],
     [/^\/puzzles\/new$/, renderPuzzleNew],
     [/^\/settings$/, renderSettings],
   ];
@@ -166,6 +167,7 @@
     const pick = pool.length ? pool[Math.floor((Date.now() / 864e5) % pool.length)] : null; // stable for the day
     const last = S.last;
     const pzCard = await puzzleHomeCard();
+    const newsCardHtml = await newsHomeCard();
     view.innerHTML = `
       <section class="hero">
         <svg class="ring" viewBox="0 0 96 96" aria-label="${Math.round(pct * 100)}% of proof-path items done">
@@ -189,6 +191,8 @@
           ${pick.id ? `<a class="btn" href="#/journal/${pick.id}">Open entry</a>` : `<button class="btn" id="seedLog">Log as question</button>`}
         </div></div>` : ''}
 
+      ${newsCardHtml}
+
       <h2>Modules</h2>
       <div class="grid">${MODULES.map(m => modCard(m)).join('')}</div>
 
@@ -211,7 +215,8 @@
       <div class="grid">${MODULES.map(modCard).join('')}</div>
       <h2>Also</h2><div class="grid">
         <a class="card" href="#/thread"><h3>The Thread</h3><div class="muted small">The unifying essay.</div></a>
-        <a class="card" href="#/map"><h3>Concept map</h3><div class="muted small">Every connection, clickable.</div></a></div>`;
+        <a class="card" href="#/map"><h3>Concept map</h3><div class="muted small">Every connection, clickable.</div></a>
+        <a class="card" href="#/news"><h3>News & developments</h3><div class="muted small">What's happening now on these questions.</div></a></div>`;
   }
 
   function checkboxRenderer(id) {
@@ -235,7 +240,7 @@
 
   async function renderModule(id) {
     const m = MOD[id]; if (!m) throw new Error('Unknown module');
-    await loadChecklist(id);
+    await loadChecklist(id); await loadNews();
     const src = await getText(`${id}/README.md`);
     S.last = { href: '#/module/' + id, title: `${m.num} · ${m.name}` }; S.visits[id] = Date.now(); save();
     const body = MD.render(src.replace(/^#\s+.*\n/, ''), { resolveLink: resolveFrom(id + '/'), checkbox: checkboxRenderer(id) });
@@ -257,6 +262,7 @@
         <p class="muted small">Your own words, saved automatically. Explaining it back is the real test of understanding.</p>
         <textarea id="noteText" style="min-height:220px" placeholder="What did I see? What surprised me? How would I explain this to a friend?">${esc(S.notes[id] || '')}</textarea>
         ${journalFor(id)}
+        ${newsForModule(id)}
       </div>`;
     wireChecks($('#doc'), id);
     $('#toNotes').onclick = e => { e.preventDefault(); $('#notes').scrollIntoView({ behavior: 'smooth' }); };
@@ -504,6 +510,89 @@
 
   function renderMap() {
     view.innerHTML = `<iframe class="mapframe" src="map.html" title="Concept map"></iframe>`;
+  }
+
+  // ----- news & developments -----
+  const TOPICS = {
+    primes: 'Primes', complexity: 'Complexity', randomness: 'Randomness', logic: 'Logic & Gödel',
+    emergence: 'Emergence', recursion: 'Recursion', 'ai-math': 'AI & math',
+  };
+  let NEWS = null;
+  async function loadNews() {
+    if (NEWS) return NEWS;
+    try { NEWS = parseNews(await getText('news/news.md')); } catch (e) { NEWS = []; }
+    return NEWS;
+  }
+  function parseNews(txt) {
+    const [head, ...parts] = txt.split(/^## /m);
+    const items = parts.map(part => {
+      const lines = part.split('\n');
+      const m = lines[0].match(/^(\d{4}-\d{2})\s*·\s*(.+)$/);
+      if (!m) return null;
+      const meta = {};
+      (lines[1] || '').split(' · ').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) meta[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); });
+      const body = lines.slice(2).join('\n').replace(/\n-{3,}\s*$/, '').trim();
+      const id = (m[1] + '-' + m[2]).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+      return { id, date: m[1], title: m[2].trim(), topics: (meta.topic || '').split(/[|,]/).map(s => s.trim()).filter(Boolean),
+        modules: (meta.modules || '').split(',').map(s => s.trim()).filter(s => MOD[s]), body };
+    }).filter(Boolean).sort((a, b) => b.date.localeCompare(a.date));
+    items.keepUp = (head.split(/^### Keep up/m)[1] || '').trim();
+    return items;
+  }
+  const S_newsRead = () => (S.newsRead || (S.newsRead = {}));
+  const unreadNews = () => (NEWS || []).filter(n => !S_newsRead()[n.id]);
+  const fmtMonth = ym => new Date(ym + '-15').toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  function newsCard(n, { compact = false } = {}) {
+    const isNew = !S_newsRead()[n.id];
+    const mods = n.modules.map(id => `<a href="#/module/${id}" style="--mc:${MOD[id].color};text-decoration:none;color:var(--muted)"><span class="dot"></span>${MOD[id].name}</a>`).join(' ');
+    const body = MD.render(n.body, { resolveLink: resolveFrom('news/') }).replace(/<a href="(https?:[^"]+)">/g, '<a href="$1" target="_blank" rel="noopener">');
+    return `<article class="news ${isNew ? 'unread' : ''}" data-id="${n.id}">
+      <div class="row small" style="gap:10px"><span class="eyebrow">${fmtMonth(n.date)}</span>${n.topics.map(t => `<span class="chip">${esc(TOPICS[t] || t)}</span>`).join('')}${isNew ? '<span class="chip open">new</span>' : ''}</div>
+      <h3>${esc(n.title)}</h3>
+      ${compact ? '' : `<div class="doc">${body}</div>
+      <div class="row small" style="margin-top:8px;gap:12px">${mods}<span class="spacer"></span>
+        <a class="btn ghost" href="#/journal/new?q=${encodeURIComponent('News: “' + n.title + '”. My question: ')}${n.modules[0] ? '&m=' + n.modules[0] : ''}">Ask a question</a>
+        ${isNew ? '<button class="btn ghost readBtn">Mark read</button>' : ''}</div>`}
+    </article>`;
+  }
+  async function newsHomeCard() {
+    await loadNews();
+    const un = unreadNews();
+    const list = (un.length ? un : NEWS).slice(0, 3);
+    if (!list.length) return '';
+    return `<h2>${un.length ? `In the news <span class="chip open">${un.length} new</span>` : 'In the news'}</h2>
+      <div class="card">${list.map(n => `<a class="newsline" href="#/news?i=${n.id}"><span class="eyebrow">${fmtMonth(n.date)}</span><span>${esc(n.title)}</span></a>`).join('')}
+      <div class="row" style="margin-top:8px"><a class="btn" href="#/news">All developments</a></div></div>`;
+  }
+  let newsFilter = 'all';
+  async function renderNews(_, params) {
+    await loadNews();
+    const focus = params && params.get('i');
+    view.innerHTML = `
+      <h1>News & developments</h1>
+      <p class="lede">What's happening right now on the questions in this repo. Each item says why it connects to what you're studying. Turn anything that sparks curiosity into a journal question.</p>
+      <div class="seg" id="nf" style="margin-bottom:14px;flex-wrap:wrap">${[['all', 'All'], ...Object.entries(TOPICS)].filter(([k]) => k === 'all' || NEWS.some(n => n.topics.includes(k))).map(([k, l]) => `<button data-f="${k}" class="${newsFilter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div id="nlist"></div>
+      ${unreadNews().length ? '<div class="row" style="margin:6px 0 0"><button class="btn" id="allRead">Mark all read</button></div>' : ''}
+      ${NEWS.keepUp ? `<h2>Keep up yourself</h2><div class="doc">${MD.render(NEWS.keepUp, { resolveLink: resolveFrom('news/') }).replace(/<a href="(https?:[^"]+)">/g, '<a href="$1" target="_blank" rel="noopener">')}</div>` : ''}
+      <p class="muted small" style="margin-top:20px">Last curated: ${NEWS.length ? fmtMonth(NEWS[0].date) : '—'}. Items live in <code>news/news.md</code>; add your own finds there.</p>`;
+    const draw = () => {
+      const list = NEWS.filter(n => newsFilter === 'all' || n.topics.includes(newsFilter));
+      $('#nlist').innerHTML = list.map(n => newsCard(n)).join('') || '<div class="empty">Nothing here yet.</div>';
+    };
+    $('#nf').onclick = e => { const f = e.target.dataset.f; if (!f) return; newsFilter = f; [...$('#nf').children].forEach(b => b.classList.toggle('on', b.dataset.f === f)); draw(); };
+    $('#nlist').onclick = e => {
+      const b = e.target.closest('.readBtn'); if (!b) return;
+      const id = b.closest('.news').dataset.id; S_newsRead()[id] = localDay(); save(); draw();
+    };
+    const ar = $('#allRead'); if (ar) ar.onclick = () => { NEWS.forEach(n => S_newsRead()[n.id] = S_newsRead()[n.id] || localDay()); save(true); renderNews(_, params); };
+    draw();
+    if (focus) { const el = view.querySelector(`[data-id="${CSS.escape(focus)}"]`); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); } }
+  }
+  function newsForModule(id) {
+    const list = (NEWS || []).filter(n => n.modules.includes(id));
+    if (!list.length) return '';
+    return `<h2>In the news</h2>${list.slice(0, 4).map(n => `<a class="newsline" href="#/news?i=${n.id}"><span class="eyebrow">${fmtMonth(n.date)}</span><span>${esc(n.title)}</span></a>`).join('')}`;
   }
 
   // ----- puzzles: one problem you carry -----
